@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LunaTrade</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="moon">◔</div>
+        <div>
+          <strong>LunaTrade</strong>
+          <span>PAPER V1</span>
+        </div>
+      </div>
+
+      <nav>
+        <button class="nav-item active" data-section="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav-item" data-section="operations">⇄ <span>Operaciones</span></button>
+        <button class="nav-item" data-section="wallet">▣ <span>Billetera</span></button>
+        <button class="nav-item" data-section="settings">⚙ <span>Ajustes</span></button>
+      </nav>
+
+      <div class="status-card">
+        <div class="status-dot" id="marketDot"></div>
+        <div>
+          <b id="marketStatus">Conectando...</b>
+          <small>Binance BTC/USDT</small>
+        </div>
+      </div>
+
+      <div class="user-box">
+        <div class="avatar">J</div>
+        <div><b>Hola, Jorge</b><small>Modo simulación</small></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h1>Resumen General</h1>
+          <p>Control total de LunaTrade en modo PAPER</p>
+        </div>
+        <div class="mode-pill">🧪 SIMULACIÓN — SIN DINERO REAL</div>
+      </header>
+
+      <section id="dashboard" class="section active-section">
+        <div class="cards four">
+          <article class="metric-card"><span>Capital Total</span><strong id="equity">$10.00</strong><small>USDT PAPER</small></article>
+          <article class="metric-card green"><span>Ganancia Total</span><strong id="profit">$0.00</strong><small id="profitPct">0.00%</small></article>
+          <article class="metric-card"><span>BTC/USDT</span><strong id="btcPrice">—</strong><small id="signal">Esperando mercado</small></article>
+          <article class="metric-card blue"><span>Reserva para Retirar</span><strong id="reserve">$0.00</strong><small>USDT PAPER</small></article>
+        </div>
+
+        <div class="grid-main">
+          <article class="panel chart-panel">
+            <div class="panel-head"><div><h2>Rendimiento</h2><p>Capital estimado en tiempo real</p></div><span class="live-badge">● LIVE</span></div>
+            <canvas id="equityChart" width="900" height="320"></canvas>
+          </article>
+
+          <article class="panel bot-panel">
+            <div class="panel-head"><div><h2>Estado del Bot</h2><p>Estrategia demo PAPER</p></div></div>
+            <div class="bot-row"><span class="bot-icon">🤖</span><div><b>Trading Bot</b><small id="botStatus">Pausado</small></div><span class="badge" id="botBadge">OFF</span></div>
+            <div class="bot-row"><span class="bot-icon">🛡️</span><div><b>Risk Manager</b><small>Stop Loss + límites</small></div><span class="badge on">ON</span></div>
+            <div class="bot-row"><span class="bot-icon">⚡</span><div><b>Arbitraje</b><small>Disponible en Fase 2</small></div><span class="badge soon">PRÓXIMO</span></div>
+            <button class="primary-btn" id="toggleBot">Activar Bot PAPER</button>
+            <button class="danger-btn" id="emergencyBtn">Emergency Stop</button>
+          </article>
+        </div>
+
+        <div class="grid-lower">
+          <article class="panel">
+            <div class="panel-head"><div><h2>Indicadores</h2><p>Lectura técnica demo</p></div></div>
+            <div class="indicator-grid">
+              <div><span>EMA 9</span><b id="emaFast">—</b></div>
+              <div><span>EMA 21</span><b id="emaSlow">—</b></div>
+              <div><span>RSI</span><b id="rsi">—</b></div>
+              <div><span>Pérdidas seguidas</span><b id="lossStreak">0</b></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><h2>Actividad Reciente</h2><p>Todo queda registrado</p></div></div>
+            <div id="eventList" class="event-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="operations" class="section">
+        <div class="section-title"><h2>Operaciones</h2><p>Historial de operaciones simuladas.</p></div>
+        <article class="panel table-panel">
+          <table>
+            <thead><tr><th>Par</th><th>Entrada</th><th>Salida</th><th>Capital</th><th>Resultado</th><th>Motivo</th></tr></thead>
+            <tbody id="tradeRows"></tbody>
+          </table>
+        </article>
+      </section>
+
+      <section id="wallet" class="section">
+        <div class="section-title"><h2>Billetera</h2><p>En V1 todo es simulado. En Testnet conectaremos Binance.</p></div>
+        <div class="cards three">
+          <article class="metric-card"><span>Disponible para operar</span><strong id="cash">$10.00</strong><small>USDT PAPER</small></article>
+          <article class="metric-card blue"><span>Reserva</span><strong id="walletReserve">$0.00</strong><small>Solo esta parte se puede retirar en V1</small></article>
+          <article class="metric-card"><span>Capital Total</span><strong id="walletEquity">$10.00</strong><small>USDT PAPER</small></article>
+        </div>
+
+        <div class="grid-lower">
+          <article class="panel form-panel">
+            <h2>Depositar (simulado)</h2>
+            <p>Agrega capital ficticio para probar el sistema.</p>
+            <label>Monto USDT</label>
+            <input id="depositAmount" type="number" min="0.01" step="0.01" value="10" />
+            <button class="primary-btn" id="depositBtn">Agregar USDT PAPER</button>
+          </article>
+          <article class="panel form-panel">
+            <h2>Retirar ganancias (simulado)</h2>
+            <p>Solo desde la reserva de beneficios.</p>
+            <label>Monto USDT</label>
+            <input id="withdrawAmount" type="number" min="0.01" step="0.01" value="1" />
+            <button class="secondary-btn" id="withdrawBtn">Retirar de Reserva</button>
+          </article>
+        </div>
+      </section>
+
+      <section id="settings" class="section">
+        <div class="section-title"><h2>Ajustes de Riesgo</h2><p>Configuración temporal de esta sesión PAPER.</p></div>
+        <article class="panel settings-panel">
+          <div class="setting-row"><div><b>Reinvertir ganancias</b><small>El resto va a la reserva.</small></div><div><input id="reinvestPct" type="range" min="0" max="100" value="70" /><span id="reinvestLabel">70%</span></div></div>
+          <div class="setting-row"><div><b>Pérdida máxima diaria</b><small>Al alcanzarla, LunaTrade se pausa.</small></div><div><input id="dailyLossPct" type="number" min="0.1" max="10" step="0.1" value="2" /> %</div></div>
+          <div class="setting-row"><div><b>Máximo capital por operación</b><small>Parte del efectivo disponible.</small></div><div><input id="positionPct" type="number" min="1" max="100" step="1" value="25" /> %</div></div>
+          <button class="primary-btn" id="saveSettings">Guardar ajustes</button>
+          <div class="safety-note">⚠️ La estrategia de esta V1 es únicamente para simulación. No está validada para operar dinero real.</div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

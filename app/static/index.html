@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LunaTrade V8 — Cloud Auto Testnet</title>
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LunaTrade" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png" />
+  <link rel="stylesheet" href="/static/styles.css?v=8.0" />
+</head>
+<body>
+  <div class="login-overlay" id="loginOverlay" hidden>
+    <div class="login-card">
+      <div class="login-moon">◔</div>
+      <h1>LunaTrade</h1>
+      <p>Acceso privado al panel de Testnet.</p>
+      <form id="loginForm">
+        <label>Contraseña
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Tu contraseña LunaTrade" required />
+        </label>
+        <button class="primary-btn" type="submit">Entrar</button>
+      </form>
+      <small id="loginMessage">Tus claves de Binance nunca se guardan en el teléfono.</small>
+    </div>
+  </div>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="moon">◔</div>
+        <div><strong>LunaTrade</strong><span>AUTO V8 · CLOUD</span></div>
+      </div>
+
+      <nav>
+        <button class="nav-item active" data-section="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav-item" data-section="operations">⇄ <span>Operaciones</span></button>
+        <button class="nav-item" data-section="wallet">▣ <span>Billetera</span></button>
+        <button class="nav-item" data-section="partners">👥 <span>Referidos</span></button>
+        <button class="nav-item" data-section="manual">📘 <span>Manual</span></button>
+        <button class="nav-item" data-section="settings">⚙ <span>Ajustes</span></button>
+      </nav>
+
+      <div class="status-card market-data-card">
+        <div class="status-dot" id="marketDot"></div>
+        <div>
+          <b id="marketStatus">Conectando mercado...</b>
+          <small>Datos públicos BTC/USDT · no es tu billetera</small>
+        </div>
+      </div>
+
+      <div class="user-box">
+        <div class="avatar">J</div>
+        <div><b>Hola, Jorge</b><small>Auto · Spot Testnet</small></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h1>Resumen General</h1>
+          <p>Trading automático · Binance Spot Testnet · fondos virtuales</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="install-app-btn" id="installAppBtn" type="button">📱 Instalar LunaTrade</button><button class="logout-btn" id="logoutBtn" type="button">Salir</button>
+          <div class="mode-pill">🟡 AUTO TESTNET — SIN DINERO REAL</div>
+        </div>
+      </header>
+
+      <section id="dashboard" class="section active-section">
+        <div class="cards four">
+          <article class="metric-card blue"><span>Saldo USDT · Binance Testnet</span><strong id="totalTestnetCapital">—</strong><small>FONDOS VIRTUALES DISPONIBLES</small></article>
+          <article class="metric-card"><span>Capital asignado al Bot</span><strong id="equity">$10.00</strong><small>SOLO LO QUE LUNATRADE PUEDE USAR</small></article>
+          <article class="metric-card green"><span>Ganancia del Bot</span><strong id="profit">+$0.00</strong><small id="profitPct">desde activación</small></article>
+          <article class="metric-card"><span>BTC/USDT Testnet</span><strong id="btcPrice">—</strong><small id="signal">Esperando mercado</small></article>
+        </div>
+
+        <div class="connection-strip">
+          <article class="exchange-connection public-feed">
+            <div class="exchange-logo">₿</div>
+            <div><small>Mercado Binance</small><b id="marketFeedLabel">Datos públicos conectando…</b></div>
+            <span class="connection-badge" id="marketFeedBadge">…</span>
+          </article>
+          <article class="exchange-connection disconnected" id="binanceTestnetCard">
+            <div class="exchange-logo">B</div>
+            <div>
+              <small>Tu cuenta Binance</small>
+              <b id="binanceTestnetLabel">NO CONECTADA</b>
+              <em id="binanceTestnetBalance">Spot Testnet pendiente</em>
+            </div>
+            <div class="exchange-actions">
+              <span class="connection-badge off" id="binanceTestnetBadge">OFF</span>
+              <button class="mini-connect-btn" id="checkBinanceTestnet">Verificar</button>
+            </div>
+          </article>
+          <article class="exchange-connection disconnected">
+            <div class="exchange-logo">BY</div>
+            <div><small>Tu cuenta Bybit</small><b>NO CONECTADA</b></div>
+            <span class="connection-badge off">OFF</span>
+          </article>
+        </div>
+
+        <article class="panel mobile-ready-panel" id="mobileReadyPanel">
+          <div class="mobile-ready-copy">
+            <span class="eyebrow">📱 MODO TELÉFONO</span>
+            <h2>LunaTrade listo para tu pantalla de inicio</h2>
+            <p>Con HTTPS en la nube, LunaTrade puede abrirse desde tu teléfono aunque la laptop esté apagada. Instálalo como PWA para entrar con un solo toque.</p>
+          </div>
+          <div class="mobile-ready-status">
+            <b id="networkStatus">🟢 En línea</b>
+            <small id="installStatus">Acceso móvil disponible</small>
+          </div>
+        </article>
+
+        <article class="panel testnet-test-panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">🤖 AUTOMÁTICO · BINANCE SPOT TESTNET</span>
+              <h2>Deja que LunaTrade decida por ti</h2>
+              <p>LunaTrade analiza BTC/USDT cada segundo. Cuando la señal técnica cumple las reglas, compra automáticamente; después gestiona Stop Loss, Take Profit y salida. Todo aquí usa fondos virtuales.</p>
+            </div>
+            <span class="connection-badge testnet" id="autoTestnetBadge">PAUSADO</span>
+          </div>
+          <div class="testnet-trade-row">
+            <label>Capital asignado al bot
+              <input id="testnetAssignedCapital" type="number" min="5" max="1000" step="1" value="100" />
+            </label>
+            <button class="secondary-btn" id="saveTestnetCapital">Usar este capital</button>
+            <button class="primary-btn" id="toggleTestnetAuto">ACTIVAR AUTO TESTNET</button>
+          </div>
+          <div class="guided-box success"><b>Recomendación inicial:</b><span>Tu saldo completo de Binance Testnet se muestra arriba. Para esta práctica asigna <b>100 USDT virtuales</b>. LunaTrade no utilizará el resto del saldo.</span></div>
+          <div class="guided-box warning"><b>Protección V6:</b><span>Stop Loss -0,40% · Take Profit +0,80% · máximo -2% diario · pausa tras 3 pérdidas consecutivas. En esta fase la protección la gestiona LunaTrade mientras el servidor esté encendido.</span></div>
+          <div id="testnetAutoResult" class="testnet-result">Esperando activación.</div>
+        </article>
+
+        <div class="bot-command-grid">
+          <article class="command-card trading-card">
+            <div class="command-top">
+              <div><span class="giant-icon">🤖</span><small>AUTOMATIZACIÓN</small><h2>TRADING BOT</h2></div>
+              <span class="big-status" id="tradeBotStatus">PAUSADO</span>
+            </div>
+            <p>Trading automático conectado a Binance Spot Testnet. Tú no tienes que pulsar comprar ni vender.</p>
+            <div class="command-stats"><span>Señal <b id="commandSignal">ESPERAR</b></span><span>Riesgo <b>PROTEGIDO</b></span></div>
+            <button class="primary-btn large-action" id="toggleBot">ACTIVAR AUTO TESTNET</button>
+          </article>
+
+          <article class="command-card arbitrage-card">
+            <div class="command-top">
+              <div><span class="giant-icon">⚡</span><small>MULTI-EXCHANGE</small><h2>ARBITRAJE</h2></div>
+              <span class="big-status amber">FASE 2</span>
+            </div>
+            <p>Preparado para comparar Binance ↔ Bybit. No se ejecuta hasta conectar la segunda fuente y validar costes.</p>
+            <div class="command-stats"><span>Binance <b>MARKET DATA</b></span><span>Bybit <b class="muted-value">PENDIENTE</b></span></div>
+            <button class="secondary-btn large-action" id="arbitragePreview">Ver cómo funcionará</button>
+          </article>
+        </div>
+
+        <div class="grid-main">
+          <article class="panel chart-panel">
+            <div class="panel-head"><div><h2>Rendimiento</h2><p>Capital estimado en tiempo real</p></div><span class="live-badge">● LIVE</span></div>
+            <canvas id="equityChart" width="900" height="320"></canvas>
+          </article>
+
+          <article class="panel investment-panel">
+            <div class="panel-head"><div><h2>¿Qué hacer con mis ganancias?</h2><p>Define cómo crece tu capital.</p></div></div>
+            <div class="strategy-current">
+              <span>Modo actual</span>
+              <strong id="strategyName">Equilibrado</strong>
+              <small><b id="reinvestQuick">70%</b> reinvertir · <b id="reserveQuick">30%</b> reservar</small>
+            </div>
+            <div class="strategy-options">
+              <button class="strategy-btn" data-reinvest="100"><b>🚀 Crecimiento</b><small>100% reinvertir</small></button>
+              <button class="strategy-btn active" data-reinvest="70"><b>⚖️ Equilibrado</b><small>70% / 30%</small></button>
+              <button class="strategy-btn" data-reinvest="50"><b>🛡️ Conservador</b><small>50% / 50%</small></button>
+              <button class="strategy-btn" data-reinvest="0"><b>💰 Reservar</b><small>0% reinvertir</small></button>
+            </div>
+            <button class="danger-btn" id="emergencyBtn">🛑 EMERGENCY STOP</button>
+          </article>
+        </div>
+
+        <div class="grid-lower">
+          <article class="panel">
+            <div class="panel-head"><div><h2>Indicadores</h2><p>Lectura técnica demo</p></div></div>
+            <div class="indicator-grid">
+              <div><span>EMA 9</span><b id="emaFast">—</b></div>
+              <div><span>EMA 21</span><b id="emaSlow">—</b></div>
+              <div><span>RSI</span><b id="rsi">—</b></div>
+              <div><span>Pérdidas seguidas</span><b id="lossStreak">0</b></div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><h2>Actividad Reciente</h2><p>Cada movimiento genera un mensaje.</p></div></div>
+            <div id="eventList" class="event-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="operations" class="section">
+        <div class="section-title"><h2>Operaciones</h2><p>Historial PAPER y operaciones automáticas de Binance Spot Testnet.</p></div>
+        <article class="panel table-panel">
+          <table>
+            <thead><tr><th>Par</th><th>Entrada</th><th>Salida</th><th>Capital</th><th>Resultado</th><th>Motivo</th></tr></thead>
+            <tbody id="tradeRows"></tbody>
+          </table>
+        </article>
+      </section>
+
+      <section id="wallet" class="section">
+        <div class="section-title"><h2>Mi dinero</h2><p>V3 sigue siendo PAPER. Las cuentas reales todavía NO están conectadas.</p></div>
+        <div class="cards three">
+          <article class="metric-card"><span>Disponible para operar</span><strong id="cash">$10.00</strong><small>USDT PAPER</small></article>
+          <article class="metric-card blue"><span>Reserva para retirar</span><strong id="walletReserve">$0.00</strong><small>Ganancia protegida PAPER</small></article>
+          <article class="metric-card"><span>Capital Total</span><strong id="walletEquity">$10.00</strong><small>USDT PAPER</small></article>
+        </div>
+
+        <div class="wallet-flow panel">
+          <div class="flow-step active"><span>1</span><b>Seleccionar exchange</b><small>Binance / Bybit</small></div>
+          <div class="flow-line"></div><div class="flow-step"><span>2</span><b>Elegir moneda y red</b><small>USDT + red compatible</small></div>
+          <div class="flow-line"></div><div class="flow-step"><span>3</span><b>Mostrar QR/dirección</b><small>Desde tu exchange</small></div>
+          <div class="flow-line"></div><div class="flow-step"><span>4</span><b>Confirmar llegada</b><small>LunaTrade detectará el depósito</small></div>
+        </div>
+
+        <div class="grid-lower">
+          <article class="panel form-panel">
+            <h2>Depositar (simulado)</h2>
+            <p>En la fase real aquí aparecerá la dirección/QR de TU cuenta del exchange.</p>
+            <label>Monto USDT PAPER</label>
+            <input id="depositAmount" type="number" min="0.01" step="0.01" value="10" />
+            <button class="primary-btn" id="depositBtn">Agregar USDT PAPER</button>
+          </article>
+          <article class="panel form-panel">
+            <h2>Retirar ganancias (simulado)</h2>
+            <p>La versión real reservará la cantidad y tú confirmarás el retiro en el exchange.</p>
+            <label>Monto USDT PAPER</label>
+            <input id="withdrawAmount" type="number" min="0.01" step="0.01" value="1" />
+            <button class="secondary-btn" id="withdrawBtn">Retirar de Reserva PAPER</button>
+          </article>
+        </div>
+      </section>
+
+      <section id="partners" class="section">
+        <div class="section-title"><h2>LunaTrade Partners</h2><p>Programa de referidos preparado como DEMO. No procesa pagos reales todavía.</p></div>
+        <div class="partner-hero panel">
+          <div><span class="eyebrow">TU CÓDIGO DE REFERIDO</span><h2>JORGE-LT</h2><p>Comisión propuesta: 20% directo + 5% segundo nivel, únicamente sobre suscripciones de LunaTrade.</p></div>
+          <button class="primary-btn" id="copyReferral">Copiar código</button>
+        </div>
+        <div class="cards four partner-metrics">
+          <article class="metric-card"><span>Referidos directos</span><strong>0</strong><small>Nivel 1</small></article>
+          <article class="metric-card"><span>Segundo nivel</span><strong>0</strong><small>Nivel 2</small></article>
+          <article class="metric-card green"><span>Comisiones demo</span><strong>$0.00</strong><small>Sin pagos reales</small></article>
+          <article class="metric-card blue"><span>Disponible</span><strong>$0.00</strong><small>DEMO</small></article>
+        </div>
+        <article class="panel referral-rules">
+          <h2>Cómo funcionará</h2>
+          <div class="rule-grid">
+            <div><span>1</span><b>Compartes tu código</b><small>Tu familiar o amigo se registra.</small></div>
+            <div><span>2</span><b>Activa un plan</b><small>La comisión nace del pago del software, no del depósito.</small></div>
+            <div><span>3</span><b>20% directo</b><small>Sobre la suscripción del referido directo.</small></div>
+            <div><span>4</span><b>5% segundo nivel</b><small>Solo un segundo nivel; no hay cadena infinita.</small></div>
+          </div>
+          <div class="safety-note">LunaTrade no pagará comisiones por depositar capital, por perder dinero ni por forzar operaciones.</div>
+        </article>
+      </section>
+
+
+      <section id="manual" class="section">
+        <div class="manual-hero panel">
+          <div>
+            <span class="eyebrow">📘 GUÍA LUNATRADE</span>
+            <h2>Empieza paso a paso, sin perderte.</h2>
+            <p>No necesitas saber de APIs ni trading para recorrer esta guía. LunaTrade te dice qué tocar, qué esperar y cuál es el siguiente paso.</p>
+          </div>
+          <div class="manual-progress-card">
+            <span>Tu progreso</span>
+            <strong id="manualProgressText">0 de 8 pasos</strong>
+            <div class="progress-track"><div id="manualProgressBar" class="progress-fill"></div></div>
+            <button class="primary-btn" id="startManual">Comenzar guía</button>
+          </div>
+        </div>
+
+        <div class="status-legend panel">
+          <b>Cómo leer los colores</b>
+          <div class="legend-items">
+            <span><i class="legend-dot green"></i> Verde: conectado y validado</span>
+            <span><i class="legend-dot amber"></i> Amarillo: mercado/Testnet/en proceso</span>
+            <span><i class="legend-dot red"></i> Rojo: error o detenido por seguridad</span>
+            <span><i class="legend-dot gray"></i> Gris: todavía sin configurar</span>
+          </div>
+        </div>
+
+        <div class="manual-steps">
+          <article class="manual-step" data-manual-step="1">
+            <div class="step-number">1</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>PRIMERO</small><h3>Entra y confirma que estás en simulación</h3></div><span class="step-check">✓</span></div>
+              <p>Mira arriba a la derecha: debe decir <b>SIMULACIÓN — SIN DINERO REAL</b>. Esta fase sirve para aprender sin arriesgar fondos.</p>
+              <div class="guided-box"><b>Haz esto ahora</b><span>① Revisa tu capital PAPER. ② Confirma que BTC/USDT está recibiendo precio. ③ No conectes dinero real todavía.</span></div>
+              <button class="manual-done secondary-btn" data-complete="1">Entendido, siguiente</button>
+            </div>
+          </article>
+
+          <article class="manual-step" data-manual-step="2">
+            <div class="step-number">2</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>CONEXIÓN</small><h3>Conecta Binance de forma segura</h3></div><span class="step-check">✓</span></div>
+              <p>Ya podemos conectar <b>Binance Spot Testnet</b>. Es una cuenta de prueba con fondos virtuales. LunaTrade validará la API y mostrará el saldo virtual sin tocar dinero real.</p>
+              <div class="guided-box"><b>Dale aquí, paso a paso</b><span>① Entra al sitio oficial de Binance Spot Testnet. ② Inicia sesión. ③ Genera API Key + Secret. ④ Pégalos en tu archivo <b>.env</b>. ⑤ Reinicia LunaTrade. ⑥ Pulsa <b>Verificar</b> en la tarjeta Binance.</span></div>
+              <div class="guided-box warning"><b>Regla de seguridad</b><span>No envíes la Secret Key por chat ni la publiques en GitHub. Testnet se muestra en amarillo para que nunca se confunda con una cuenta real.</span></div>
+              <div class="mini-flow"><span>Binance Testnet</span><b>→</b><span>.env local</span><b>→</b><span>LunaTrade</span><b>→</b><span>🟡 TESTNET</span></div>
+              <button class="manual-done secondary-btn" data-complete="2">Ya conecté / entendí Testnet</button>
+            </div>
+          </article>
+
+          <article class="manual-step" data-manual-step="3">
+            <div class="step-number">3</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>CAPITAL</small><h3>Ingresa tu inversión</h3></div><span class="step-check">✓</span></div>
+              <p>En Billetera eliges el exchange, la moneda y la red. En la versión real LunaTrade mostrará la dirección de <b>tu propio exchange</b> y detectará cuando el depósito quede confirmado.</p>
+              <div class="guided-box"><b>Dale aquí</b><span>Ve a <b>Billetera</b> → coloca un monto PAPER → pulsa <b>Agregar USDT PAPER</b>. Así practicas exactamente el flujo sin dinero real.</span></div>
+              <button class="manual-go primary-btn" data-go-section="wallet" data-complete="3">Ir a Billetera y practicar</button>
+            </div>
+          </article>
+
+          <article class="manual-step" data-manual-step="4">
+            <div class="step-number">4</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>ESTRATEGIA</small><h3>Decide qué hacer con tus ganancias</h3></div><span class="step-check">✓</span></div>
+              <p>Elige cuánto se reinvierte y cuánto se reserva. Puedes cambiarlo cuando quieras.</p>
+              <div class="manual-choice-grid">
+                <div><b>🚀 Crecimiento</b><span>100% reinvertir</span></div>
+                <div><b>⚖️ Equilibrado</b><span>70% / 30%</span></div>
+                <div><b>🛡️ Conservador</b><span>50% / 50%</span></div>
+                <div><b>💰 Reserva</b><span>0% reinvertir</span></div>
+              </div>
+              <button class="manual-go primary-btn" data-go-section="dashboard" data-complete="4">Elegir estrategia en Dashboard</button>
+            </div>
+          </article>
+
+          <article class="manual-step" data-manual-step="5">
+            <div class="step-number">5</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>AUTOMATIZACIÓN</small><h3>Activa el Trading Bot</h3></div><span class="step-check">✓</span></div>
+              <p>El bot no compra por estar encendido. Analiza el mercado y puede quedarse en <b>ESPERAR</b> si no encuentra una señal válida.</p>
+              <div class="guided-box success"><b>Qué verás</b><span>PAUSADO → pulsas <b>Activar Bot PAPER</b> → ACTIVO. Las operaciones cerradas aparecerán en Operaciones.</span></div>
+              <button class="manual-go primary-btn" data-go-section="dashboard" data-complete="5">Ir al Trading Bot</button>
+            </div>
+          </article>
+
+          <article class="manual-step" data-manual-step="6">
+            <div class="step-number">6</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>MULTI-EXCHANGE</small><h3>Prepara el Arbitraje</h3></div><span class="step-check">✓</span></div>
+              <p>Para arbitraje necesitaremos Binance + Bybit conectados y capital disponible en ambos. LunaTrade calculará fees, slippage y margen neto antes de considerar una operación.</p>
+              <div class="mini-flow"><span>Binance</span><b>↔</b><span>LunaTrade</span><b>↔</b><span>Bybit</span></div>
+              <button class="manual-go secondary-btn" data-go-section="dashboard" data-complete="6">Ver módulo de Arbitraje</button>
+            </div>
+          </article>
+
+          <article class="manual-step" data-manual-step="7">
+            <div class="step-number">7</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>CONTROL</small><h3>Observa operaciones, riesgo y notificaciones</h3></div><span class="step-check">✓</span></div>
+              <p>Cada movimiento importante debe dejar un registro: señal, compra, venta, ganancia, pérdida, stop, depósito o pausa de seguridad.</p>
+              <div class="guided-box"><b>Tu rutina diaria</b><span>Dashboard → revisa estado. Operaciones → confirma resultados. Actividad reciente → entiende qué hizo LunaTrade y por qué.</span></div>
+              <button class="manual-go secondary-btn" data-go-section="operations" data-complete="7">Ver Operaciones</button>
+            </div>
+          </article>
+
+          <article class="manual-step" data-manual-step="8">
+            <div class="step-number">8</div>
+            <div class="step-body">
+              <div class="step-head"><div><small>GANANCIAS</small><h3>Reserva y retira bajo tu control</h3></div><span class="step-check">✓</span></div>
+              <p>Cuando exista dinero real, LunaTrade podrá mostrar cuánto está reservado, pero el retiro final se confirmará en tu exchange con su seguridad/2FA.</p>
+              <div class="guided-box success"><b>Idea central</b><span>El bot automatiza el trading. <b>Tú sigues controlando la salida del dinero.</b></span></div>
+              <button class="manual-go primary-btn" data-go-section="wallet" data-complete="8">Ver zona de retiros</button>
+            </div>
+          </article>
+        </div>
+
+        <article class="manual-finish panel">
+          <div>
+            <span class="eyebrow">🌙 LUNATRADE TE ACOMPAÑA</span>
+            <h2 id="manualFinishTitle">Completa los 8 pasos para dominar el flujo.</h2>
+            <p id="manualFinishText">Puedes volver a este manual cuando quieras. Tu progreso se guarda en este navegador.</p>
+          </div>
+          <button class="secondary-btn" id="resetManual">Reiniciar guía</button>
+        </article>
+      </section>
+
+      <section id="settings" class="section">
+        <div class="section-title"><h2>Ajustes de Riesgo</h2><p>Configuración temporal de esta sesión PAPER.</p></div>
+        <article class="panel settings-panel">
+          <div class="setting-row"><div><b>Reinvertir ganancias</b><small>El resto va a la reserva.</small></div><div><input id="reinvestPct" type="range" min="0" max="100" value="70" /><span id="reinvestLabel">70%</span></div></div>
+          <div class="setting-row"><div><b>Pérdida máxima diaria</b><small>Al alcanzarla, LunaTrade se pausa.</small></div><div><input id="dailyLossPct" type="number" min="0.1" max="10" step="0.1" value="2" /> %</div></div>
+          <div class="setting-row"><div><b>Máximo capital por operación</b><small>Parte del efectivo disponible.</small></div><div><input id="positionPct" type="number" min="1" max="100" step="1" value="25" /> %</div></div>
+          <button class="primary-btn" id="saveSettings">Guardar ajustes</button>
+          <div class="safety-note">⚠️ La estrategia de esta V3 sigue siendo únicamente para simulación. No está validada para dinero real.</div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <span id="reserve" hidden></span>
+  <script src="/static/app.js?v=8.0"></script>
+</body>
+</html>
