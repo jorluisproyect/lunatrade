@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,12 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, timeout=20)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    cols = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
 def init_db() -> None:
@@ -68,8 +75,27 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 last_login TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS platform_fee_ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                created_at TEXT NOT NULL,
+                trade_notional REAL NOT NULL DEFAULT 0,
+                fee_rate REAL NOT NULL DEFAULT 0.0001,
+                fee_amount REAL NOT NULL DEFAULT 0,
+                mode TEXT NOT NULL DEFAULT 'demo',
+                note TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY(user_id) REFERENCES demo_users(id)
+            );
             """
         )
+        # Migraciones seguras para usuarios existentes de V12.
+        _ensure_column(conn, "demo_users", "first_name", "TEXT")
+        _ensure_column(conn, "demo_users", "last_name", "TEXT")
+        _ensure_column(conn, "demo_users", "email", "TEXT")
+        _ensure_column(conn, "demo_users", "signup_source", "TEXT NOT NULL DEFAULT 'admin'")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_demo_users_email_unique ON demo_users(lower(email)) WHERE email IS NOT NULL AND email <> ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_demo_users_referrer ON demo_users(referrer_code)")
 
 
 def add_trade(trade: dict[str, Any]) -> None:
@@ -130,24 +156,38 @@ def username_exists(username: str) -> bool:
     return bool(row)
 
 
-def referral_exists(code: str) -> bool:
+def email_exists(email: str) -> bool:
     with _connect() as conn:
-        row = conn.execute("SELECT 1 FROM demo_users WHERE referral_code=?", (code,)).fetchone()
+        row = conn.execute("SELECT 1 FROM demo_users WHERE lower(email)=lower(?)", (email.strip(),)).fetchone()
+    return bool(row)
+
+
+def referral_exists(code: str) -> bool:
+    if code.strip().upper() == "JORGE-LT":
+        return True
+    with _connect() as conn:
+        row = conn.execute("SELECT 1 FROM demo_users WHERE upper(referral_code)=upper(?)", (code.strip(),)).fetchone()
     return bool(row)
 
 
 def create_demo_user_record(*, display_name: str, username: str, password_salt: str, password_hash: str,
-                            referral_code: str, referrer_code: str = "JORGE-LT", demo_balance: float = 100.0) -> dict[str, Any]:
+                            referral_code: str, referrer_code: str = "JORGE-LT", demo_balance: float = 100.0,
+                            first_name: str | None = None, last_name: str | None = None,
+                            email: str | None = None, signup_source: str = "admin") -> dict[str, Any]:
     created_at = datetime.now(timezone.utc).isoformat()
     with _connect() as conn:
         cur = conn.execute(
             """
             INSERT INTO demo_users (
                 display_name, username, password_salt, password_hash, referral_code, referrer_code,
-                demo_balance, demo_pnl, selected_mode, demo_bot_running, is_active, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'trading', 0, 1, ?)
+                demo_balance, demo_pnl, selected_mode, demo_bot_running, is_active, created_at,
+                first_name, last_name, email, signup_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'trading', 0, 1, ?, ?, ?, ?, ?)
             """,
-            (display_name, username, password_salt, password_hash, referral_code, referrer_code, demo_balance, created_at),
+            (
+                display_name, username, password_salt, password_hash, referral_code, referrer_code,
+                demo_balance, created_at, first_name, last_name, email, signup_source,
+            ),
         )
         row = conn.execute("SELECT * FROM demo_users WHERE id=?", (cur.lastrowid,)).fetchone()
     return dict(row)
@@ -165,15 +205,49 @@ def get_demo_user_by_id(user_id: int) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-def list_demo_users(limit: int = 500) -> list[dict[str, Any]]:
+def get_demo_user_by_referral(code: str) -> dict[str, Any] | None:
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM demo_users WHERE upper(referral_code)=upper(?)", (code.strip(),)).fetchone()
+    return dict(row) if row else None
+
+
+def list_demo_users(limit: int = 1000) -> list[dict[str, Any]]:
     with _connect() as conn:
         rows = conn.execute(
-            """SELECT id, display_name, username, referral_code, referrer_code, demo_balance, demo_pnl,
-                      selected_mode, demo_bot_running, is_active, created_at, last_login
-               FROM demo_users ORDER BY id DESC LIMIT ?""",
+            """SELECT id, display_name, first_name, last_name, email, username, referral_code, referrer_code,
+                      demo_balance, demo_pnl, selected_mode, demo_bot_running, is_active, signup_source,
+                      created_at, last_login
+               FROM demo_users ORDER BY id ASC LIMIT ?""",
             (limit,),
         ).fetchall()
-    return [dict(row) for row in rows]
+    users = [dict(row) for row in rows]
+    by_code = {str(u["referral_code"]).upper(): u for u in users}
+    referral_counts = Counter(str(u.get("referrer_code") or "").upper() for u in users)
+
+    def referral_level(user: dict[str, Any]) -> int:
+        level = 1
+        current = str(user.get("referrer_code") or "JORGE-LT").upper()
+        seen: set[str] = set()
+        while current and current != "JORGE-LT" and current not in seen and level < 50:
+            seen.add(current)
+            parent = by_code.get(current)
+            if not parent:
+                break
+            level += 1
+            current = str(parent.get("referrer_code") or "JORGE-LT").upper()
+        return level
+
+    enriched: list[dict[str, Any]] = []
+    for user in reversed(users):
+        parent_code = str(user.get("referrer_code") or "JORGE-LT").upper()
+        parent = by_code.get(parent_code)
+        item = dict(user)
+        item["referrer_name"] = "Master · Jorge" if parent_code == "JORGE-LT" else (parent.get("display_name") if parent else "Código externo")
+        item["referrer_username"] = "admin" if parent_code == "JORGE-LT" else (parent.get("username") if parent else "—")
+        item["referral_level"] = referral_level(user)
+        item["direct_referrals"] = int(referral_counts.get(str(user.get("referral_code") or "").upper(), 0))
+        enriched.append(item)
+    return enriched
 
 
 def touch_demo_login(user_id: int) -> None:
@@ -195,3 +269,11 @@ def update_demo_bot(user_id: int, running: bool) -> None:
 def update_demo_password(user_id: int, password_salt: str, password_hash: str) -> None:
     with _connect() as conn:
         conn.execute("UPDATE demo_users SET password_salt=?, password_hash=? WHERE id=?", (password_salt, password_hash, user_id))
+
+
+def platform_fee_summary() -> dict[str, Any]:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(trade_notional),0) AS volume, COALESCE(SUM(fee_amount),0) AS fees, COUNT(*) AS rows FROM platform_fee_ledger"
+        ).fetchone()
+    return {"tracked_volume": float(row["volume"]), "tracked_fees": float(row["fees"]), "ledger_rows": int(row["rows"])}

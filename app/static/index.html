@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LunaTrade V12 — Demo Users PWA</title>
+  <title>LunaTrade V13 — Registro + Referidos PWA</title>
   <meta name="theme-color" content="#070b13" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -11,25 +11,42 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=12" />
+  <link rel="stylesheet" href="/static/styles.css?v=13" />
 </head>
 <body>
   <div class="login-overlay" id="loginOverlay" hidden>
     <div class="login-card">
       <div class="login-moon">◔</div>
       <h1>LunaTrade</h1>
-      <p>Acceso privado al panel de Testnet.</p>
+      <p>Trading y arbitraje en modo demo.</p>
       <button class="install-login-btn" id="installLoginBtn" type="button">📲 Instalar LunaTrade</button>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="showLoginTab" type="button">Entrar</button>
+        <button class="auth-tab" id="showRegisterTab" type="button">Crear cuenta</button>
+      </div>
       <form id="loginForm">
         <label>Usuario
-          <input id="loginUsername" type="text" autocomplete="username" placeholder="admin o tu usuario LunaTrade" value="admin" required />
+          <input id="loginUsername" type="text" autocomplete="username" placeholder="Tu usuario LunaTrade" required />
         </label>
         <label>Contraseña
-          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Tu contraseña LunaTrade" required />
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Tu contraseña" required />
         </label>
         <button class="primary-btn" type="submit">Entrar</button>
       </form>
-      <small id="loginMessage">Usuarios demo reciben 100 USDT virtuales. No es dinero real.</small>
+      <form id="registerForm" class="register-form" hidden>
+        <div class="register-name-grid">
+          <label>Nombre<input id="registerFirstName" type="text" autocomplete="given-name" maxlength="50" placeholder="Carlos" required /></label>
+          <label>Apellido<input id="registerLastName" type="text" autocomplete="family-name" maxlength="60" placeholder="Pérez" required /></label>
+        </div>
+        <label>Correo<input id="registerEmail" type="email" autocomplete="email" maxlength="160" placeholder="carlos@email.com" required /></label>
+        <label>Elige tu usuario<input id="registerUsername" type="text" autocomplete="username" maxlength="24" placeholder="carlos.perez" required /></label>
+        <label>Elige tu contraseña<input id="registerPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo 8 caracteres, letra y número" required /></label>
+        <label>Confirmar contraseña<input id="registerPassword2" type="password" autocomplete="new-password" minlength="8" placeholder="Repite tu contraseña" required /></label>
+        <label>Código de referido <small class="field-hint">Opcional</small><input id="registerReferral" type="text" maxlength="40" placeholder="Ej. LT-CARLOS-4827" /></label>
+        <button class="primary-btn" type="submit">Crear mi cuenta demo</button>
+        <small class="register-note">Recibirás $100 USDT virtuales. No es dinero real ni retirable.</small>
+      </form>
+      <small id="loginMessage">Crea tu cuenta o entra con tu usuario.</small>
     </div>
   </div>
   <div class="demo-shell" id="demoShell" hidden>
@@ -66,7 +83,11 @@
         <p>LunaTrade compara precios y costes antes de considerar una oportunidad. En esta cuenta no mueve fondos reales.</p>
         <div class="demo-empty-opportunity"><b>Sin oportunidad demo ahora</b><small>La app prioriza no operar cuando el margen no compensa costes.</small></div>
       </section>
-      <section class="demo-account-card"><span>Tu usuario</span><b id="demoUsername">—</b><span>Código de referido</span><b id="demoReferral">—</b></section>
+      <section class="demo-account-card">
+        <span>Tu usuario</span><b id="demoUsername">—</b>
+        <span>Código para invitar</span><b id="demoReferral">—</b>
+        <button class="demo-share-referral" id="shareDemoReferral" type="button">Compartir mi invitación</button>
+      </section>
     </main>
   </div>
 
@@ -257,19 +278,22 @@
       </section>
 
       <section id="partners" class="section">
-        <div class="section-title"><h2>Referidos y usuarios demo</h2><p>Crea accesos simples para tus invitados. Cada cuenta inicia con 100 USDT virtuales.</p></div>
-        <article class="panel referral-admin-create">
-          <div><span class="eyebrow">NUEVO USUARIO DEMO</span><h2>Generar acceso</h2><p>Escribe solo el nombre. LunaTrade crea un usuario memorable, una contraseña inicial y su código de referido.</p></div>
-          <div class="referral-create-form"><input id="newDemoName" type="text" maxlength="80" placeholder="Ej. Carlos" /><button class="primary-btn" id="createDemoUser">Crear usuario</button></div>
-          <div class="credential-result" id="credentialResult" hidden>
-            <small>ENTREGA ESTOS DATOS UNA SOLA VEZ</small><div><span>Usuario</span><b id="createdUsername">—</b></div><div><span>Contraseña</span><b id="createdPassword">—</b></div><div><span>Demo</span><b>$100.00</b></div><button class="secondary-btn" id="copyCredentials">Copiar acceso</button>
-          </div>
+        <div class="section-title"><h2>Red de referidos</h2><p>Vista Master: aquí ves quién se registró, quién lo refirió y cuántas personas invitó.</p></div>
+        <div class="referral-master-stats">
+          <article><span>Usuarios</span><strong id="masterTotalUsers">0</strong></article>
+          <article><span>Directos tuyos</span><strong id="masterDirectUsers">0</strong></article>
+          <article><span>De tu red</span><strong id="masterNetworkUsers">0</strong></article>
+          <article><span>Fee 0.01%</span><strong id="masterFeePreview">PREVIEW</strong></article>
+        </div>
+        <article class="panel referral-master-info">
+          <div><span class="eyebrow">CÓDIGO MASTER</span><h2>JORGE-LT</h2><p>Si alguien se registra sin código queda directo bajo tu cuenta Master. Si usa el código de otro usuario, verás también esa rama de la red.</p></div>
+          <button class="secondary-btn" id="copyMasterReferral" type="button">Copiar enlace Master</button>
         </article>
         <article class="panel table-panel referral-user-table">
-          <div class="panel-head"><div><h2>Mis referidos</h2><p>Usuarios demo creados desde LunaTrade.</p></div><button class="secondary-btn" id="refreshDemoUsers">Actualizar</button></div>
-          <table><thead><tr><th>Nombre</th><th>Usuario</th><th>Referido</th><th>Demo</th><th>Modo</th><th>Último acceso</th><th></th></tr></thead><tbody id="demoUserRows"><tr><td colspan="7">Todavía no hay usuarios demo.</td></tr></tbody></table>
+          <div class="panel-head"><div><h2>Todos los usuarios</h2><p>Registro, correo y relación de referido.</p></div><button class="secondary-btn" id="refreshDemoUsers">Actualizar</button></div>
+          <table><thead><tr><th>Nombre</th><th>Correo</th><th>Usuario</th><th>Referido por</th><th>Nivel</th><th>Su código</th><th>Invitados</th><th>Demo</th><th>Modo</th><th>Último acceso</th></tr></thead><tbody id="demoUserRows"><tr><td colspan="10">Todavía no hay usuarios demo.</td></tr></tbody></table>
         </article>
-        <div class="safety-note">Las cuentas creadas aquí son de demostración. Los $100 son virtuales y no representan depósitos, rendimientos ni dinero retirable.</div>
+        <div class="safety-note"><b>Modelo de cobro:</b> el 0.01% por operación queda solo como modelo de cálculo/preview en esta versión. No se descuenta dinero real del usuario. Para cobrarlo en cuentas reales necesitamos una arquitectura de facturación autorizada, términos claros y revisión legal/regulatoria antes de activarlo.</div>
       </section>
 
       <section id="manual" class="section">
@@ -411,6 +435,6 @@
 
   <div id="toast" class="toast"></div>
   <span id="reserve" hidden></span>
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/app.js?v=13"></script>
 </body>
 </html>

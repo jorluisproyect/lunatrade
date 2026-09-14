@@ -24,9 +24,9 @@ load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=True)
 
 from .database import (
     add_event, init_db, recent_events, recent_trades, get_runtime_setting, set_runtime_setting,
-    username_exists, referral_exists, create_demo_user_record, get_demo_user_by_username,
-    get_demo_user_by_id, list_demo_users, touch_demo_login, update_demo_mode, update_demo_bot,
-    update_demo_password,
+    username_exists, email_exists, referral_exists, create_demo_user_record, get_demo_user_by_username,
+    get_demo_user_by_id, get_demo_user_by_referral, list_demo_users, touch_demo_login, update_demo_mode, update_demo_bot,
+    update_demo_password, platform_fee_summary,
 )  # noqa: E402
 from .binance_testnet import binance_testnet_monitor, check_binance_testnet, testnet_auto_loop  # noqa: E402
 from .market import market_stream  # noqa: E402
@@ -140,6 +140,16 @@ def _slug_name(name: str) -> str:
     return raw[:12] or "usuario"
 
 
+def _generate_referral_code(display_name: str) -> str:
+    base = _slug_name(display_name).upper()[:8]
+    for _ in range(80):
+        digits = f"{secrets.randbelow(10000):04d}"
+        referral = f"LT-{base}-{digits}"
+        if not referral_exists(referral):
+            return referral
+    raise RuntimeError("No se pudo generar un código de referido único.")
+
+
 def _generate_demo_credentials(display_name: str) -> tuple[str, str, str]:
     base = _slug_name(display_name)
     words = ["Luna", "Sol", "Rio", "Nube", "Nova", "Atlas", "Zen", "Oro", "Mar", "Vega"]
@@ -183,7 +193,7 @@ def _persist_auto_position() -> None:
 async def lifespan(app: FastAPI):
     init_db()
     _load_persisted_runtime()
-    add_event("info", "LunaTrade V12 iniciado", "Admin Testnet + usuarios demo + referidos + PWA. Fondos virtuales solamente.")
+    add_event("info", "LunaTrade V13 iniciado", "Registro propio + red de referidos + 100 USDT demo + PWA. Fondos virtuales solamente.")
     tasks = [
         asyncio.create_task(market_stream()),
         asyncio.create_task(simulation_loop()),
@@ -197,13 +207,22 @@ async def lifespan(app: FastAPI):
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-app = FastAPI(title="LunaTrade V12 Users PWA", version="12.0", lifespan=lifespan)
+app = FastAPI(title="LunaTrade V13 Self Register Referrals", version="13.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 class LoginRequest(BaseModel):
     username: str = Field(default="admin", min_length=0, max_length=80)
     password: str = Field(min_length=1, max_length=256)
+
+
+class RegisterRequest(BaseModel):
+    first_name: str = Field(min_length=2, max_length=50)
+    last_name: str = Field(min_length=2, max_length=60)
+    email: str = Field(min_length=5, max_length=160)
+    username: str = Field(min_length=4, max_length=24)
+    password: str = Field(min_length=8, max_length=256)
+    referral_code: str = Field(default="", max_length=40)
 
 
 class CreateDemoUserRequest(BaseModel):
@@ -239,7 +258,7 @@ async def home():
 
 @app.get("/healthz")
 async def healthz():
-    return {"ok": True, "service": "LunaTrade V12", "mode": "TESTNET_AND_DEMO", "cloud": CLOUD_MODE}
+    return {"ok": True, "service": "LunaTrade V13", "mode": "TESTNET_AND_DEMO", "cloud": CLOUD_MODE}
 
 
 @app.get("/api/auth/status")
@@ -250,13 +269,13 @@ async def auth_status(request: Request):
     authenticated = (not required) or bool(info)
     payload = {
         "required": required, "ready": ready, "authenticated": authenticated,
-        "mode": "railway" if RUNNING_ON_RAILWAY else "local", "version": "12.0",
+        "mode": "railway" if RUNNING_ON_RAILWAY else "local", "version": "13.0",
         "role": (info or {}).get("role", "admin" if not required else None),
     }
     if info and info.get("role") == "demo":
         user = get_demo_user_by_id(info["user_id"])
         if user:
-            payload["user"] = {"display_name": user["display_name"], "username": user["username"], "referral_code": user["referral_code"]}
+            payload["user"] = {"display_name": user["display_name"], "username": user["username"], "email": user.get("email"), "referral_code": user["referral_code"]}
     return payload
 
 
@@ -293,10 +312,71 @@ async def logout(response: Response):
     return {"ok": True}
 
 
+@app.post("/api/register")
+async def register(req: RegisterRequest, request: Request, response: Response):
+    if not _auth_ready():
+        raise HTTPException(status_code=503, detail="Registro temporalmente no disponible: falta configurar la seguridad del servidor.")
+
+    first_name = re.sub(r"\s+", " ", req.first_name.strip())
+    last_name = re.sub(r"\s+", " ", req.last_name.strip())
+    email = req.email.strip().lower()
+    username = req.username.strip().lower()
+    password = req.password
+    referrer_code = (req.referral_code or "").strip().upper() or "JORGE-LT"
+
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(status_code=400, detail="Escribe un correo válido.")
+    if not re.fullmatch(r"[a-z0-9._-]{4,24}", username):
+        raise HTTPException(status_code=400, detail="El usuario debe tener 4–24 caracteres: letras, números, punto, guion o guion bajo.")
+    if username in {"admin", "jorge", "owner", "master", "lunatrade"}:
+        raise HTTPException(status_code=400, detail="Ese nombre de usuario está reservado.")
+    if username_exists(username):
+        raise HTTPException(status_code=409, detail="Ese usuario ya existe. Prueba otro.")
+    if email_exists(email):
+        raise HTTPException(status_code=409, detail="Ese correo ya está registrado.")
+    if not referral_exists(referrer_code):
+        raise HTTPException(status_code=400, detail="El código de referido no existe. Revísalo o déjalo vacío.")
+    if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        raise HTTPException(status_code=400, detail="Tu clave debe tener al menos 8 caracteres, una letra y un número.")
+
+    display_name = f"{first_name} {last_name}".strip()
+    referral = _generate_referral_code(first_name)
+    salt, digest = _password_hash(password)
+    user = create_demo_user_record(
+        display_name=display_name, first_name=first_name, last_name=last_name, email=email,
+        username=username, password_salt=salt, password_hash=digest, referral_code=referral,
+        referrer_code=referrer_code, demo_balance=100.0, signup_source="self",
+    )
+    touch_demo_login(int(user["id"]))
+    add_event("success", "Nuevo registro demo", f"{display_name} · {username} · referido por {referrer_code}")
+
+    secure_cookie = CLOUD_MODE or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    response.set_cookie(
+        SESSION_COOKIE, _make_session_token(role="demo", user_id=int(user["id"])), max_age=SESSION_TTL_SECONDS,
+        httponly=True, secure=secure_cookie, samesite="lax", path="/"
+    )
+    return {
+        "ok": True, "authenticated": True, "role": "demo", "demo_balance": 100.0,
+        "user": {"display_name": display_name, "username": username, "email": email, "referral_code": referral, "referrer_code": referrer_code},
+        "message": "Cuenta demo creada con 100 USDT virtuales.",
+    }
+
+
 @app.get("/api/admin/users")
 async def admin_users(request: Request):
     _require_admin(request)
-    return {"users": list_demo_users()}
+    users = list_demo_users()
+    return {
+        "users": users,
+        "stats": {
+            "total_users": len(users),
+            "direct_master": sum(1 for u in users if str(u.get("referrer_code") or "").upper() == "JORGE-LT"),
+            "network_referrals": sum(1 for u in users if str(u.get("referrer_code") or "").upper() != "JORGE-LT"),
+            **platform_fee_summary(),
+            "fee_rate_preview": 0.0001,
+            "fee_mode": "preview_only",
+        },
+    }
 
 
 @app.post("/api/admin/users")
@@ -306,7 +386,7 @@ async def admin_create_user(req: CreateDemoUserRequest, request: Request):
     salt, digest = _password_hash(plain_password)
     user = create_demo_user_record(
         display_name=req.display_name.strip(), username=username, password_salt=salt, password_hash=digest,
-        referral_code=referral, referrer_code="JORGE-LT", demo_balance=100.0
+        referral_code=referral, referrer_code="JORGE-LT", demo_balance=100.0, signup_source="admin"
     )
     add_event("success", "Usuario demo creado", f"{user['display_name']} · {username} · 100 USDT demo")
     return {
@@ -338,7 +418,8 @@ async def demo_status(request: Request):
         raise HTTPException(status_code=404, detail="Usuario demo no encontrado.")
     return {
         "user": {
-            "display_name": user["display_name"], "username": user["username"], "referral_code": user["referral_code"],
+            "display_name": user["display_name"], "username": user["username"], "email": user.get("email"),
+            "referral_code": user["referral_code"], "referrer_code": user["referrer_code"],
             "balance": user["demo_balance"], "pnl": user["demo_pnl"], "mode": user["selected_mode"],
             "bot_running": bool(user["demo_bot_running"]),
         },

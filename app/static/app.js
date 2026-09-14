@@ -100,6 +100,37 @@ $('loginForm')?.addEventListener('submit',async(e)=>{
     if((d.role||'admin')==='demo') await loadDemo(); else connectWs();
   }catch(err){ showLogin(err?.message === 'Failed to fetch' ? 'No pude contactar LunaTrade. Revisa el servidor.' : err.message); }
 });
+
+function setAuthView(view='login'){
+  const isRegister=view==='register';
+  if($('loginForm')) $('loginForm').hidden=isRegister;
+  if($('registerForm')) $('registerForm').hidden=!isRegister;
+  $('showLoginTab')?.classList.toggle('active',!isRegister);
+  $('showRegisterTab')?.classList.toggle('active',isRegister);
+  if($('loginMessage')) $('loginMessage').textContent=isRegister?'Crea tu cuenta demo con $100 USDT virtuales.':'Ingresa con tu usuario LunaTrade.';
+  setTimeout(()=>$(isRegister?'registerFirstName':'loginUsername')?.focus(),20);
+}
+$('showLoginTab')?.addEventListener('click',()=>setAuthView('login'));
+$('showRegisterTab')?.addEventListener('click',()=>setAuthView('register'));
+const initialReferral=new URLSearchParams(location.search).get('ref');
+if(initialReferral && $('registerReferral')){ $('registerReferral').value=initialReferral.toUpperCase(); setAuthView('register'); }
+
+$('registerForm')?.addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const password=$('registerPassword')?.value||'', password2=$('registerPassword2')?.value||'';
+  if(password!==password2){ toast('Las contraseñas no coinciden.'); return; }
+  const payload={
+    first_name:$('registerFirstName')?.value.trim()||'', last_name:$('registerLastName')?.value.trim()||'',
+    email:$('registerEmail')?.value.trim()||'', username:$('registerUsername')?.value.trim()||'', password,
+    referral_code:$('registerReferral')?.value.trim()||''
+  };
+  try{
+    const r=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'No se pudo crear la cuenta');
+    authOkay=true; currentRole='demo'; showRoleShell('demo'); await loadDemo();
+    toast('✅ Cuenta creada. Tienes $100 USDT virtuales para probar LunaTrade.');
+  }catch(err){ toast(err?.message||'No se pudo crear la cuenta'); }
+});
 async function logoutAll(){
   try{await fetch('/api/logout',{method:'POST'});}catch(_){}
   authOkay=false; currentRole=null; currentDemo=null; try{ws?.close();}catch(_){} showLogin('Sesión cerrada.');
@@ -148,7 +179,7 @@ document.querySelectorAll('.manual-go').forEach(btn=>btn.addEventListener('click
 $('resetManual')?.addEventListener('click',()=>{localStorage.removeItem(MANUAL_STORAGE_KEY);updateManualUi(false);toast('📘 Guía reiniciada.')});
 updateManualUi(false);
 
-// ===== V12 PWA / instalación visible =====
+// ===== V13 PWA / instalación visible =====
 let deferredInstallPrompt = null;
 const installButtons = [$('installAppBtn'), $('installLoginBtn'), $('installDemoBtn'), $('installFromMore')].filter(Boolean);
 
@@ -171,7 +202,7 @@ async function requestInstall(){
 installButtons.forEach(b=>b.addEventListener('click',requestInstall));
 $('logoutFromMore')?.addEventListener('click',logoutAll);
 
-// ===== V12 USUARIOS DEMO / REFERIDOS =====
+// ===== V13 USUARIOS / REGISTRO / REFERIDOS =====
 function renderDemo(data){
   currentDemo=data; const u=data.user||{}, market=data.market||{};
   if($('demoName')) $('demoName').textContent=u.display_name||'Usuario';
@@ -192,17 +223,43 @@ $('demoBotToggle')?.addEventListener('click',async()=>{try{const running=!!curre
 
 async function loadDemoUsers(){
   if(currentRole!=='admin'||!$('demoUserRows')) return;
-  try{const r=await fetch('/api/admin/users',{cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');const users=d.users||[];$('demoUserRows').innerHTML=users.map(u=>`<tr><td>${escapeHtml(u.display_name)}</td><td><b>${escapeHtml(u.username)}</b></td><td>${escapeHtml(u.referral_code)}</td><td>$${Number(u.demo_balance||100).toFixed(2)}</td><td>${u.selected_mode==='arbitrage'?'Arbitraje':'Trading'}</td><td>${u.last_login?new Date(u.last_login).toLocaleString():'Nunca'}</td><td><button class="table-action" data-reset-user="${u.id}">Nueva clave</button></td></tr>`).join('')||'<tr><td colspan="7">Todavía no hay usuarios demo.</td></tr>';
-  document.querySelectorAll('[data-reset-user]').forEach(b=>b.addEventListener('click',()=>resetDemoPassword(Number(b.dataset.resetUser))));}catch(e){toast(e.message)}
+  try{
+    const r=await fetch('/api/admin/users',{cache:'no-store'}); const d=await r.json(); if(!r.ok)throw new Error(d.detail||'Error');
+    const users=d.users||[], stats=d.stats||{};
+    if($('masterTotalUsers')) $('masterTotalUsers').textContent=stats.total_users??users.length;
+    if($('masterDirectUsers')) $('masterDirectUsers').textContent=stats.direct_master??0;
+    if($('masterNetworkUsers')) $('masterNetworkUsers').textContent=stats.network_referrals??0;
+    if($('masterFeePreview')) $('masterFeePreview').textContent='0.01% PREVIEW';
+    $('demoUserRows').innerHTML=users.map(u=>`<tr>
+      <td><b>${escapeHtml(u.display_name||'—')}</b></td>
+      <td>${escapeHtml(u.email||'—')}</td>
+      <td>${escapeHtml(u.username||'—')}</td>
+      <td>${escapeHtml(u.referrer_name||u.referrer_code||'Master')}</td>
+      <td>N${Number(u.referral_level||1)}</td>
+      <td>${escapeHtml(u.referral_code||'—')}</td>
+      <td>${Number(u.direct_referrals||0)}</td>
+      <td>$${Number(u.demo_balance||100).toFixed(2)}</td>
+      <td>${u.selected_mode==='arbitrage'?'Arbitraje':'Trading'}</td>
+      <td>${u.last_login?new Date(u.last_login).toLocaleString():'Nunca'}</td>
+    </tr>`).join('')||'<tr><td colspan="10">Todavía no hay usuarios demo.</td></tr>';
+  }catch(e){toast(e.message)}
 }
-async function createDemoUser(){
-  const name=$('newDemoName')?.value.trim(); if(!name){toast('Escribe el nombre del usuario.');return;}
-  try{const r=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({display_name:name})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'No se pudo crear');lastCreatedCredentials=d.credentials;
-  if($('credentialResult')) $('credentialResult').hidden=false;if($('createdUsername')) $('createdUsername').textContent=d.credentials.username;if($('createdPassword')) $('createdPassword').textContent=d.credentials.password;if($('newDemoName')) $('newDemoName').value='';toast('✅ Usuario creado con $100 demo.');await loadDemoUsers();}catch(e){toast(e.message)}
-}
-async function resetDemoPassword(id){try{const r=await fetch(`/api/admin/users/${id}/reset-password`,{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');lastCreatedCredentials={username:d.username,password:d.password};if($('credentialResult')) $('credentialResult').hidden=false;if($('createdUsername')) $('createdUsername').textContent=d.username;if($('createdPassword')) $('createdPassword').textContent=d.password;toast('🔐 Nueva contraseña generada. Cópiala ahora.')}catch(e){toast(e.message)}}
-$('createDemoUser')?.addEventListener('click',createDemoUser); $('refreshDemoUsers')?.addEventListener('click',loadDemoUsers);
-$('copyCredentials')?.addEventListener('click',async()=>{if(!lastCreatedCredentials)return;const text=`LunaTrade\nUsuario: ${lastCreatedCredentials.username}\nContraseña: ${lastCreatedCredentials.password}\nDemo: $100 virtuales\nEnlace: ${location.origin}`;try{await navigator.clipboard.writeText(text);toast('📋 Acceso copiado.')}catch(_){toast('Copia el usuario y la contraseña de la tarjeta.')}});
+$('refreshDemoUsers')?.addEventListener('click',loadDemoUsers);
+$('copyMasterReferral')?.addEventListener('click',async()=>{
+  const url=`${location.origin}/?ref=JORGE-LT`;
+  try{await navigator.clipboard.writeText(url);toast('📋 Enlace Master copiado.')}catch(_){toast(url)}
+});
+
+$('shareDemoReferral')?.addEventListener('click',async()=>{
+  const code=currentDemo?.user?.referral_code; if(!code)return;
+  const url=`${location.origin}/?ref=${encodeURIComponent(code)}`;
+  const text=`Prueba LunaTrade DEMO con $100 virtuales. Mi código: ${code}\n${url}`;
+  try{
+    if(navigator.share) await navigator.share({title:'LunaTrade DEMO',text,url});
+    else { await navigator.clipboard.writeText(text); toast('📋 Invitación copiada.'); }
+  }catch(err){ if(err?.name!=='AbortError') toast('No se pudo compartir.'); }
+});
+
 const partnersBtn=document.querySelector('[data-open-section="partners"]'); partnersBtn?.addEventListener('click',()=>setTimeout(loadDemoUsers,80));
 
 if('serviceWorker' in navigator){
