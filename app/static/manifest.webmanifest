@@ -2,8 +2,8 @@
   "id": "/",
   "name": "LunaTrade",
   "short_name": "LunaTrade",
-  "description": "LunaTrade — panel automático Testnet minimalista",
-  "start_url": "/?source=pwa&v=11",
+  "description": "LunaTrade — app PWA con Testnet y cuentas demo",
+  "start_url": "/?source=pwa&v=12",
   "scope": "/",
   "display": "standalone",
   "display_override": [

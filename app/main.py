@@ -10,6 +10,8 @@ import json
 import os
 import secrets
 import time
+import re
+import unicodedata
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
@@ -20,7 +22,12 @@ from pydantic import BaseModel, Field
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=True)
 
-from .database import add_event, init_db, recent_events, recent_trades, get_runtime_setting, set_runtime_setting  # noqa: E402
+from .database import (
+    add_event, init_db, recent_events, recent_trades, get_runtime_setting, set_runtime_setting,
+    username_exists, referral_exists, create_demo_user_record, get_demo_user_by_username,
+    get_demo_user_by_id, list_demo_users, touch_demo_login, update_demo_mode, update_demo_bot,
+    update_demo_password,
+)  # noqa: E402
 from .binance_testnet import binance_testnet_monitor, check_binance_testnet, testnet_auto_loop  # noqa: E402
 from .market import market_stream  # noqa: E402
 from .simulator import simulation_loop  # noqa: E402
@@ -60,37 +67,90 @@ def _auth_ready() -> bool:
     return bool(ACCESS_PASSWORD and len(SESSION_SECRET) >= 32)
 
 
-def _make_session_token() -> str:
+def _password_hash(password: str, salt_hex: str | None = None) -> tuple[str, str]:
+    salt = bytes.fromhex(salt_hex) if salt_hex else secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 220_000)
+    return salt.hex(), digest.hex()
+
+
+def _verify_password(password: str, salt_hex: str, expected_hex: str) -> bool:
+    _, actual = _password_hash(password, salt_hex)
+    return hmac.compare_digest(actual, expected_hex)
+
+
+def _make_session_token(*, role: str = "admin", user_id: int = 0) -> str:
     exp = int(time.time()) + SESSION_TTL_SECONDS
     nonce = secrets.token_urlsafe(12)
-    payload = f"{exp}:{nonce}"
+    payload = f"{exp}:{nonce}:{role}:{user_id}"
     sig = hmac.new(SESSION_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     raw = f"{payload}:{sig}".encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
-def _valid_session_token(token: str | None) -> bool:
+def _session_info(token: str | None) -> dict | None:
     if not token or not _auth_ready():
-        return False
+        return None
     try:
         padded = token + "=" * (-len(token) % 4)
         raw = base64.urlsafe_b64decode(padded.encode()).decode()
-        exp_s, nonce, sig = raw.split(":", 2)
-        payload = f"{exp_s}:{nonce}"
+        exp_s, nonce, role, user_id_s, sig = raw.split(":", 4)
+        payload = f"{exp_s}:{nonce}:{role}:{user_id_s}"
         expected = hmac.new(SESSION_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(sig, expected) and int(exp_s) > int(time.time())
+        if not hmac.compare_digest(sig, expected) or int(exp_s) <= int(time.time()):
+            return None
+        info = {"role": role, "user_id": int(user_id_s), "exp": int(exp_s)}
+        if role == "demo":
+            user = get_demo_user_by_id(info["user_id"])
+            if not user or not user.get("is_active"):
+                return None
+        return info
     except Exception:
-        return False
+        return None
 
 
-def _require_http_auth(request: Request) -> None:
+def _valid_session_token(token: str | None) -> bool:
+    return _session_info(token) is not None
+
+
+def _current_session(request: Request) -> dict | None:
+    return _session_info(request.cookies.get(SESSION_COOKIE))
+
+
+def _require_http_auth(request: Request) -> dict:
     if not _auth_required():
-        return
+        return {"role": "admin", "user_id": 0}
     if not _auth_ready():
         raise HTTPException(status_code=503, detail="Seguridad cloud pendiente: configura LUNATRADE_ACCESS_PASSWORD y LUNATRADE_SESSION_SECRET.")
-    if not _valid_session_token(request.cookies.get(SESSION_COOKIE)):
+    info = _current_session(request)
+    if not info:
         raise HTTPException(status_code=401, detail="Inicia sesión en LunaTrade.")
+    return info
 
+
+def _require_admin(request: Request) -> dict:
+    info = _require_http_auth(request)
+    if info.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acceso solo para el administrador de LunaTrade.")
+    return info
+
+
+def _slug_name(name: str) -> str:
+    raw = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    raw = re.sub(r"[^a-z0-9]+", "", raw.split()[0] if raw.split() else raw)
+    return raw[:12] or "usuario"
+
+
+def _generate_demo_credentials(display_name: str) -> tuple[str, str, str]:
+    base = _slug_name(display_name)
+    words = ["Luna", "Sol", "Rio", "Nube", "Nova", "Atlas", "Zen", "Oro", "Mar", "Vega"]
+    for _ in range(50):
+        digits = f"{secrets.randbelow(10000):04d}"
+        username = f"luna.{base}.{digits}"
+        referral = f"LT-{base.upper()[:8]}-{digits}"
+        if not username_exists(username) and not referral_exists(referral):
+            password = f"{secrets.choice(words)}-{secrets.choice(words)}-{digits}-{secrets.token_hex(1).upper()}!"
+            return username, password, referral
+    raise RuntimeError("No se pudo generar un usuario único.")
 
 def _load_persisted_runtime() -> None:
     """Restaura la configuración operativa TESTNET al reiniciar LunaTrade.
@@ -123,7 +183,7 @@ def _persist_auto_position() -> None:
 async def lifespan(app: FastAPI):
     init_db()
     _load_persisted_runtime()
-    add_event("info", "LunaTrade V9.2 iniciado", "AUTO Binance Spot Testnet + PWA + login local listo. Fondos virtuales solamente.")
+    add_event("info", "LunaTrade V12 iniciado", "Admin Testnet + usuarios demo + referidos + PWA. Fondos virtuales solamente.")
     tasks = [
         asyncio.create_task(market_stream()),
         asyncio.create_task(simulation_loop()),
@@ -137,12 +197,21 @@ async def lifespan(app: FastAPI):
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-app = FastAPI(title="LunaTrade V9.1 Minimal Testnet", version="0.9.1", lifespan=lifespan)
+app = FastAPI(title="LunaTrade V12 Users PWA", version="12.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 class LoginRequest(BaseModel):
+    username: str = Field(default="admin", min_length=0, max_length=80)
     password: str = Field(min_length=1, max_length=256)
+
+
+class CreateDemoUserRequest(BaseModel):
+    display_name: str = Field(min_length=2, max_length=80)
+
+
+class DemoModeRequest(BaseModel):
+    mode: str = Field(pattern="^(trading|arbitrage)$")
 
 
 class ToggleRequest(BaseModel):
@@ -170,43 +239,130 @@ async def home():
 
 @app.get("/healthz")
 async def healthz():
-    return {"ok": True, "service": "LunaTrade V9.1", "mode": "TESTNET_ONLY", "cloud": CLOUD_MODE}
+    return {"ok": True, "service": "LunaTrade V12", "mode": "TESTNET_AND_DEMO", "cloud": CLOUD_MODE}
 
 
 @app.get("/api/auth/status")
 async def auth_status(request: Request):
     required = _auth_required()
     ready = _auth_ready()
-    authenticated = (not required) or _valid_session_token(request.cookies.get(SESSION_COOKIE))
-    return {
-        "required": required,
-        "ready": ready,
-        "authenticated": authenticated,
-        "mode": "railway" if RUNNING_ON_RAILWAY else "local",
-        "version": "9.2",
+    info = _current_session(request) if ready else None
+    authenticated = (not required) or bool(info)
+    payload = {
+        "required": required, "ready": ready, "authenticated": authenticated,
+        "mode": "railway" if RUNNING_ON_RAILWAY else "local", "version": "12.0",
+        "role": (info or {}).get("role", "admin" if not required else None),
     }
+    if info and info.get("role") == "demo":
+        user = get_demo_user_by_id(info["user_id"])
+        if user:
+            payload["user"] = {"display_name": user["display_name"], "username": user["username"], "referral_code": user["referral_code"]}
+    return payload
 
 
 @app.post("/api/login")
 async def login(req: LoginRequest, request: Request, response: Response):
     if not _auth_required():
-        return {"ok": True, "authenticated": True}
+        return {"ok": True, "authenticated": True, "role": "admin"}
     if not _auth_ready():
         raise HTTPException(status_code=503, detail="Configura la contraseña y el secreto de sesión en el servidor.")
-    if not hmac.compare_digest(req.password, ACCESS_PASSWORD):
-        raise HTTPException(status_code=401, detail="Contraseña incorrecta.")
+
+    username = (req.username or "admin").strip()
+    role, user_id = None, 0
+    if username.lower() in {"admin", "jorge", "owner", ""} and hmac.compare_digest(req.password, ACCESS_PASSWORD):
+        role = "admin"
+    else:
+        user = get_demo_user_by_username(username)
+        if user and user.get("is_active") and _verify_password(req.password, user["password_salt"], user["password_hash"]):
+            role, user_id = "demo", int(user["id"])
+            touch_demo_login(user_id)
+    if not role:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
+
     secure_cookie = CLOUD_MODE or request.headers.get("x-forwarded-proto", "").lower() == "https"
     response.set_cookie(
-        SESSION_COOKIE, _make_session_token(), max_age=SESSION_TTL_SECONDS,
+        SESSION_COOKIE, _make_session_token(role=role, user_id=user_id), max_age=SESSION_TTL_SECONDS,
         httponly=True, secure=secure_cookie, samesite="lax", path="/"
     )
-    return {"ok": True, "authenticated": True}
+    return {"ok": True, "authenticated": True, "role": role}
 
 
 @app.post("/api/logout")
 async def logout(response: Response):
     response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True}
+
+
+@app.get("/api/admin/users")
+async def admin_users(request: Request):
+    _require_admin(request)
+    return {"users": list_demo_users()}
+
+
+@app.post("/api/admin/users")
+async def admin_create_user(req: CreateDemoUserRequest, request: Request):
+    _require_admin(request)
+    username, plain_password, referral = _generate_demo_credentials(req.display_name.strip())
+    salt, digest = _password_hash(plain_password)
+    user = create_demo_user_record(
+        display_name=req.display_name.strip(), username=username, password_salt=salt, password_hash=digest,
+        referral_code=referral, referrer_code="JORGE-LT", demo_balance=100.0
+    )
+    add_event("success", "Usuario demo creado", f"{user['display_name']} · {username} · 100 USDT demo")
+    return {
+        "ok": True,
+        "credentials": {"display_name": user["display_name"], "username": username, "password": plain_password, "referral_code": referral},
+        "demo_balance": 100.0,
+    }
+
+
+@app.post("/api/admin/users/{user_id}/reset-password")
+async def admin_reset_user_password(user_id: int, request: Request):
+    _require_admin(request)
+    user = get_demo_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    _, plain_password, _ = _generate_demo_credentials(user["display_name"])
+    salt, digest = _password_hash(plain_password)
+    update_demo_password(user_id, salt, digest)
+    return {"ok": True, "username": user["username"], "password": plain_password}
+
+
+@app.get("/api/demo/status")
+async def demo_status(request: Request):
+    info = _require_http_auth(request)
+    if info.get("role") != "demo":
+        raise HTTPException(status_code=403, detail="Esta vista es para usuarios demo.")
+    user = get_demo_user_by_id(info["user_id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario demo no encontrado.")
+    return {
+        "user": {
+            "display_name": user["display_name"], "username": user["username"], "referral_code": user["referral_code"],
+            "balance": user["demo_balance"], "pnl": user["demo_pnl"], "mode": user["selected_mode"],
+            "bot_running": bool(user["demo_bot_running"]),
+        },
+        "market": {"symbol": state.symbol, "price": state.price or state.testnet_price},
+        "demo": True, "message": "Fondos demo. No es dinero real.",
+    }
+
+
+@app.post("/api/demo/mode")
+async def demo_mode(req: DemoModeRequest, request: Request):
+    info = _require_http_auth(request)
+    if info.get("role") != "demo":
+        raise HTTPException(status_code=403, detail="Solo disponible para usuarios demo.")
+    update_demo_mode(info["user_id"], req.mode)
+    return await demo_status(request)
+
+
+@app.post("/api/demo/bot/toggle")
+async def demo_bot_toggle(req: ToggleRequest, request: Request):
+    info = _require_http_auth(request)
+    if info.get("role") != "demo":
+        raise HTTPException(status_code=403, detail="Solo disponible para usuarios demo.")
+    update_demo_bot(info["user_id"], req.enabled)
+    return await demo_status(request)
 
 
 @app.get("/service-worker.js")
@@ -225,21 +381,21 @@ async def manifest():
 
 @app.get("/api/status")
 async def status(request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     payload = state.snapshot(); payload["trades"] = recent_trades(10); payload["events"] = recent_events(10)
     return payload
 
 
 @app.post("/api/binance-testnet/check")
 async def binance_testnet_check(request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     await check_binance_testnet(log_event=True)
     return state.snapshot()
 
 
 @app.post("/api/testnet-auto/toggle")
 async def testnet_auto_toggle(req: ToggleRequest, request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     if req.enabled:
         ok = await check_binance_testnet(log_event=False)
         if not ok:
@@ -259,7 +415,7 @@ async def testnet_auto_toggle(req: ToggleRequest, request: Request):
 
 @app.post("/api/testnet-auto/settings")
 async def testnet_auto_settings(req: TestnetAutoSettings, request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     if state.testnet_auto_position:
         raise HTTPException(status_code=400, detail="No cambies el capital asignado con una posición abierta.")
     state.testnet_assigned_capital = req.assigned_capital
@@ -270,21 +426,21 @@ async def testnet_auto_settings(req: TestnetAutoSettings, request: Request):
 
 @app.post("/api/bot/toggle")
 async def bot_toggle(req: ToggleRequest, request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     state.bot_enabled = req.enabled
     return state.snapshot()
 
 
 @app.post("/api/sim/deposit")
 async def sim_deposit(req: AmountRequest, request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     state.cash += req.amount; state.total_deposits += req.amount
     return state.snapshot()
 
 
 @app.post("/api/sim/withdraw")
 async def sim_withdraw(req: AmountRequest, request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     if req.amount > state.reserve:
         raise HTTPException(status_code=400, detail="Solo puedes retirar de la reserva PAPER.")
     state.reserve -= req.amount; state.total_withdrawals += req.amount
@@ -293,7 +449,7 @@ async def sim_withdraw(req: AmountRequest, request: Request):
 
 @app.post("/api/settings")
 async def update_settings(req: SettingsRequest, request: Request):
-    _require_http_auth(request)
+    _require_admin(request)
     state.reinvest_pct = req.reinvest_pct
     state.max_daily_loss_pct = req.max_daily_loss_pct
     state.max_position_pct = req.max_position_pct
@@ -307,7 +463,8 @@ async def update_settings(req: SettingsRequest, request: Request):
 @app.websocket("/ws/dashboard")
 async def dashboard_ws(ws: WebSocket):
     if _auth_required():
-        if not _auth_ready() or not _valid_session_token(ws.cookies.get(SESSION_COOKIE)):
+        info = _session_info(ws.cookies.get(SESSION_COOKIE)) if _auth_ready() else None
+        if not info or info.get("role") != "admin":
             await ws.close(code=4401)
             return
     await ws.accept()

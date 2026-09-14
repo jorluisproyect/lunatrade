@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LunaTrade V11 — Clean PWA</title>
+  <title>LunaTrade V12 — Demo Users PWA</title>
   <meta name="theme-color" content="#070b13" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=11" />
+  <link rel="stylesheet" href="/static/styles.css?v=12" />
 </head>
 <body>
   <div class="login-overlay" id="loginOverlay" hidden>
@@ -19,16 +19,58 @@
       <div class="login-moon">◔</div>
       <h1>LunaTrade</h1>
       <p>Acceso privado al panel de Testnet.</p>
+      <button class="install-login-btn" id="installLoginBtn" type="button">📲 Instalar LunaTrade</button>
       <form id="loginForm">
+        <label>Usuario
+          <input id="loginUsername" type="text" autocomplete="username" placeholder="admin o tu usuario LunaTrade" value="admin" required />
+        </label>
         <label>Contraseña
           <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Tu contraseña LunaTrade" required />
         </label>
         <button class="primary-btn" type="submit">Entrar</button>
       </form>
-      <small id="loginMessage">Tus claves de Binance nunca se guardan en el teléfono.</small>
+      <small id="loginMessage">Usuarios demo reciben 100 USDT virtuales. No es dinero real.</small>
     </div>
   </div>
-  <div class="app-shell" id="appShell">
+  <div class="demo-shell" id="demoShell" hidden>
+    <header class="demo-topbar">
+      <div class="demo-brand"><div class="moon">◔</div><div><b>LunaTrade</b><small>DEMO</small></div></div>
+      <div class="demo-top-actions"><button class="top-install-btn" id="installDemoBtn" type="button">📲 Instalar</button><button class="top-logout-btn" id="demoLogoutBtn" type="button">Salir</button></div>
+    </header>
+    <main class="demo-main">
+      <section class="demo-welcome">
+        <span>Hola, <b id="demoName">Usuario</b></span>
+        <small>Cuenta demo · sin dinero real</small>
+      </section>
+      <section class="demo-balance-card">
+        <span>Tu capital demo</span>
+        <strong id="demoBalance">$100.00</strong>
+        <small id="demoPnl">+$0.00 de resultado</small>
+      </section>
+      <section class="demo-choice">
+        <h2>¿Qué quieres probar?</h2>
+        <div class="demo-choice-grid">
+          <button class="demo-mode-card active" id="demoTradingMode" data-demo-mode="trading"><span>↗</span><b>Trading</b><small>Bot demo con BTC/USDT</small></button>
+          <button class="demo-mode-card" id="demoArbitrageMode" data-demo-mode="arbitrage"><span>⇄</span><b>Arbitraje</b><small>Compara exchanges en modo demo</small></button>
+        </div>
+      </section>
+      <section class="demo-module" id="demoTradingPanel">
+        <div class="demo-module-head"><div><small>TRADING DEMO</small><h2>BTC / USDT</h2></div><span class="demo-status" id="demoBotStatus">PAUSADO</span></div>
+        <div class="demo-market"><span>Precio BTC</span><strong id="demoBtcPrice">—</strong></div>
+        <p>Prueba el flujo de LunaTrade con 100 USDT virtuales. No envía órdenes reales.</p>
+        <button class="primary-btn demo-primary" id="demoBotToggle">Iniciar demo</button>
+      </section>
+      <section class="demo-module" id="demoArbitragePanel" hidden>
+        <div class="demo-module-head"><div><small>ARBITRAJE DEMO</small><h2>Binance ↔ Bybit</h2></div><span class="demo-status">DEMO</span></div>
+        <div class="demo-arb-flow"><span>Binance</span><b>⇄</b><span>Bybit</span></div>
+        <p>LunaTrade compara precios y costes antes de considerar una oportunidad. En esta cuenta no mueve fondos reales.</p>
+        <div class="demo-empty-opportunity"><b>Sin oportunidad demo ahora</b><small>La app prioriza no operar cuando el margen no compensa costes.</small></div>
+      </section>
+      <section class="demo-account-card"><span>Tu usuario</span><b id="demoUsername">—</b><span>Código de referido</span><b id="demoReferral">—</b></section>
+    </main>
+  </div>
+
+  <div class="app-shell" id="appShell" hidden>
     <aside class="sidebar clean-sidebar">
       <div class="brand clean-brand">
         <div class="moon">◔</div>
@@ -47,8 +89,8 @@
       <header class="topbar clean-topbar">
         <div class="clean-title"><h1>LunaTrade</h1><span class="mode-pill">TESTNET</span></div>
         <div class="clean-online"><i></i><span>En línea</span></div>
-        <button class="system-hidden" id="installAppBtn" type="button">Instalar app</button>
-        <button class="system-hidden" id="logoutBtn" type="button">Salir</button>
+        <button class="top-install-btn" id="installAppBtn" type="button">📲 Instalar</button>
+        <button class="top-logout-btn" id="logoutBtn" type="button">Salir</button>
       </header>
 
       <section id="dashboard" class="section active-section">
@@ -215,29 +257,20 @@
       </section>
 
       <section id="partners" class="section">
-        <div class="section-title"><h2>LunaTrade Partners</h2><p>Programa de referidos preparado como DEMO. No procesa pagos reales todavía.</p></div>
-        <div class="partner-hero panel">
-          <div><span class="eyebrow">TU CÓDIGO DE REFERIDO</span><h2>JORGE-LT</h2><p>Comisión propuesta: 20% directo + 5% segundo nivel, únicamente sobre suscripciones de LunaTrade.</p></div>
-          <button class="primary-btn" id="copyReferral">Copiar código</button>
-        </div>
-        <div class="cards four partner-metrics">
-          <article class="metric-card"><span>Referidos directos</span><strong>0</strong><small>Nivel 1</small></article>
-          <article class="metric-card"><span>Segundo nivel</span><strong>0</strong><small>Nivel 2</small></article>
-          <article class="metric-card green"><span>Comisiones demo</span><strong>$0.00</strong><small>Sin pagos reales</small></article>
-          <article class="metric-card blue"><span>Disponible</span><strong>$0.00</strong><small>DEMO</small></article>
-        </div>
-        <article class="panel referral-rules">
-          <h2>Cómo funcionará</h2>
-          <div class="rule-grid">
-            <div><span>1</span><b>Compartes tu código</b><small>Tu familiar o amigo se registra.</small></div>
-            <div><span>2</span><b>Activa un plan</b><small>La comisión nace del pago del software, no del depósito.</small></div>
-            <div><span>3</span><b>20% directo</b><small>Sobre la suscripción del referido directo.</small></div>
-            <div><span>4</span><b>5% segundo nivel</b><small>Solo un segundo nivel; no hay cadena infinita.</small></div>
+        <div class="section-title"><h2>Referidos y usuarios demo</h2><p>Crea accesos simples para tus invitados. Cada cuenta inicia con 100 USDT virtuales.</p></div>
+        <article class="panel referral-admin-create">
+          <div><span class="eyebrow">NUEVO USUARIO DEMO</span><h2>Generar acceso</h2><p>Escribe solo el nombre. LunaTrade crea un usuario memorable, una contraseña inicial y su código de referido.</p></div>
+          <div class="referral-create-form"><input id="newDemoName" type="text" maxlength="80" placeholder="Ej. Carlos" /><button class="primary-btn" id="createDemoUser">Crear usuario</button></div>
+          <div class="credential-result" id="credentialResult" hidden>
+            <small>ENTREGA ESTOS DATOS UNA SOLA VEZ</small><div><span>Usuario</span><b id="createdUsername">—</b></div><div><span>Contraseña</span><b id="createdPassword">—</b></div><div><span>Demo</span><b>$100.00</b></div><button class="secondary-btn" id="copyCredentials">Copiar acceso</button>
           </div>
-          <div class="safety-note">LunaTrade no pagará comisiones por depositar capital, por perder dinero ni por forzar operaciones.</div>
         </article>
+        <article class="panel table-panel referral-user-table">
+          <div class="panel-head"><div><h2>Mis referidos</h2><p>Usuarios demo creados desde LunaTrade.</p></div><button class="secondary-btn" id="refreshDemoUsers">Actualizar</button></div>
+          <table><thead><tr><th>Nombre</th><th>Usuario</th><th>Referido</th><th>Demo</th><th>Modo</th><th>Último acceso</th><th></th></tr></thead><tbody id="demoUserRows"><tr><td colspan="7">Todavía no hay usuarios demo.</td></tr></tbody></table>
+        </article>
+        <div class="safety-note">Las cuentas creadas aquí son de demostración. Los $100 son virtuales y no representan depósitos, rendimientos ni dinero retirable.</div>
       </section>
-
 
       <section id="manual" class="section">
         <div class="manual-hero panel">
@@ -378,6 +411,6 @@
 
   <div id="toast" class="toast"></div>
   <span id="reserve" hidden></span>
-  <script src="/static/app.js?v=11"></script>
+  <script src="/static/app.js?v=12"></script>
 </body>
 </html>

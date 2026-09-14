@@ -1,5 +1,8 @@
 let latest = null;
 let ws;
+let currentRole = null;
+let currentDemo = null;
+let lastCreatedCredentials = null;
 const $ = (id) => document.getElementById(id);
 const money = (n, d=2) => `$${Number(n || 0).toFixed(d)}`;
 const num = (n, d=2) => n == null ? '—' : Number(n).toFixed(d);
@@ -63,31 +66,46 @@ let authRequired = false;
 let wsRetryTimer = null;
 function showLogin(message=''){
   const ov=$('loginOverlay'); if(ov) ov.hidden=false;
+  if($('appShell')) $('appShell').hidden=true;
+  if($('demoShell')) $('demoShell').hidden=true;
   if($('loginMessage') && message) $('loginMessage').textContent=message;
-  $('loginPassword')?.focus();
+  $('loginUsername')?.focus();
 }
 function hideLogin(){ const ov=$('loginOverlay'); if(ov) ov.hidden=true; }
+function showRoleShell(role){
+  currentRole=role; hideLogin();
+  if($('appShell')) $('appShell').hidden=role!=='admin';
+  if($('demoShell')) $('demoShell').hidden=role!=='demo';
+}
+async function loadDemo(){
+  try{const r=await fetch('/api/demo/status',{cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'No se pudo cargar la demo');renderDemo(d);}catch(e){toast(e.message)}
+}
 async function checkAuth(){
   try{
     const r=await fetch('/api/auth/status',{cache:'no-store'}); const d=await r.json();
     authRequired=!!d.required; authOkay=!!d.authenticated;
     if(d.required && !d.ready){ showLogin('Seguridad cloud pendiente de configurar en el servidor.'); return false; }
-    if(!authOkay){ showLogin('Ingresa tu contraseña LunaTrade.'); return false; }
-    hideLogin(); return true;
+    if(!authOkay){ showLogin('Ingresa tu usuario y contraseña LunaTrade.'); return false; }
+    showRoleShell(d.role||'admin');
+    if((d.role||'admin')==='demo') await loadDemo(); else connectWs();
+    return true;
   }catch(_){ showLogin('No se pudo contactar LunaTrade.'); return false; }
 }
 $('loginForm')?.addEventListener('submit',async(e)=>{
-  e.preventDefault(); const password=$('loginPassword')?.value||'';
+  e.preventDefault(); const password=$('loginPassword')?.value||''; const username=$('loginUsername')?.value||'admin';
   try{
-    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'No se pudo iniciar sesión');
-    authOkay=true; hideLogin(); if($('loginPassword')) $('loginPassword').value=''; connectWs();
-  }catch(err){ showLogin(err?.message === 'Failed to fetch' ? 'No pude contactar el backend. Verifica que LunaTrade esté encendido en VS Code.' : err.message); }
+    authOkay=true; if($('loginPassword')) $('loginPassword').value=''; showRoleShell(d.role||'admin');
+    if((d.role||'admin')==='demo') await loadDemo(); else connectWs();
+  }catch(err){ showLogin(err?.message === 'Failed to fetch' ? 'No pude contactar LunaTrade. Revisa el servidor.' : err.message); }
 });
-$('logoutBtn')?.addEventListener('click',async()=>{
+async function logoutAll(){
   try{await fetch('/api/logout',{method:'POST'});}catch(_){}
-  authOkay=false; try{ws?.close();}catch(_){} showLogin('Sesión cerrada.');
-});
+  authOkay=false; currentRole=null; currentDemo=null; try{ws?.close();}catch(_){} showLogin('Sesión cerrada.');
+}
+$('logoutBtn')?.addEventListener('click',logoutAll);
+$('demoLogoutBtn')?.addEventListener('click',logoutAll);
 async function post(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(r.status===401){authOkay=false;showLogin('Tu sesión expiró. Vuelve a entrar.');throw new Error('Sesión expirada')}if(!r.ok)throw new Error(data.detail||'Error');render(data);return data}
 function connectWs(){if(!authOkay)return; if(ws && (ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return; const proto=location.protocol==='https:'?'wss':'ws';ws=new WebSocket(`${proto}://${location.host}/ws/dashboard`);ws.onmessage=e=>render(JSON.parse(e.data));ws.onclose=(ev)=>{if(ev.code===4401){authOkay=false;showLogin('Tu sesión expiró. Vuelve a entrar.');return;} clearTimeout(wsRetryTimer);wsRetryTimer=setTimeout(connectWs,1500)}}
 async function toggleAuto(){try{const enabling=!latest?.testnet_auto?.enabled;await post('/api/testnet-auto/toggle',{enabled:enabling});toast(enabling?'🤖 AUTO TESTNET activado. LunaTrade decidirá cuándo operar.':'⏸ AUTO TESTNET pausado.')}catch(e){toast(e.message)}}
@@ -130,55 +148,62 @@ document.querySelectorAll('.manual-go').forEach(btn=>btn.addEventListener('click
 $('resetManual')?.addEventListener('click',()=>{localStorage.removeItem(MANUAL_STORAGE_KEY);updateManualUi(false);toast('📘 Guía reiniciada.')});
 updateManualUi(false);
 
-// ===== V7 PWA / móvil =====
+// ===== V12 PWA / instalación visible =====
 let deferredInstallPrompt = null;
-const installBtn = $('installAppBtn');
+const installButtons = [$('installAppBtn'), $('installLoginBtn'), $('installDemoBtn'), $('installFromMore')].filter(Boolean);
 
+function updateInstallButtons(text='📲 Instalar LunaTrade'){ installButtons.forEach(b=>{ if(!b.disabled) b.textContent=text; }); }
 function updateNetworkUi(){
   const online = navigator.onLine;
   if($('networkStatus')) $('networkStatus').textContent = online ? '🟢 En línea' : '🔴 Sin conexión';
-  if($('installStatus')) $('installStatus').textContent = online ? 'Acceso móvil disponible' : 'Reconecta a internet o Wi‑Fi';
+  if($('installStatus')) $('installStatus').textContent = online ? 'Lista para instalar' : 'Reconecta a internet';
 }
-window.addEventListener('online', updateNetworkUi);
-window.addEventListener('offline', updateNetworkUi);
-updateNetworkUi();
+window.addEventListener('online', updateNetworkUi); window.addEventListener('offline', updateNetworkUi); updateNetworkUi();
+window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault(); deferredInstallPrompt = event; updateInstallButtons('📲 Instalar LunaTrade'); });
+window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; installButtons.forEach(b=>{b.textContent='✅ Instalada';b.disabled=true;}); toast('✅ LunaTrade quedó instalado.'); });
+async function requestInstall(){
+  if(window.matchMedia('(display-mode: standalone)').matches){ toast('✅ Ya estás usando LunaTrade como app.'); return; }
+  if(deferredInstallPrompt){ deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt=null; return; }
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(isIOS) toast('📱 iPhone/iPad: Safari → Compartir → Añadir a pantalla de inicio.');
+  else toast('📱 Chrome/Edge: menú ⋮ → Instalar app. Si aparece el aviso de instalación, tócalo.');
+}
+installButtons.forEach(b=>b.addEventListener('click',requestInstall));
+$('logoutFromMore')?.addEventListener('click',logoutAll);
 
-window.addEventListener('beforeinstallprompt', (event) => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  if(installBtn){ installBtn.classList.add('ready'); installBtn.textContent = '📱 Instalar LunaTrade'; }
-});
+// ===== V12 USUARIOS DEMO / REFERIDOS =====
+function renderDemo(data){
+  currentDemo=data; const u=data.user||{}, market=data.market||{};
+  if($('demoName')) $('demoName').textContent=u.display_name||'Usuario';
+  if($('demoBalance')) $('demoBalance').textContent=money(u.balance||100);
+  if($('demoPnl')) $('demoPnl').textContent=`${Number(u.pnl||0)>=0?'+':''}${money(u.pnl||0)} de resultado`;
+  if($('demoUsername')) $('demoUsername').textContent=u.username||'—';
+  if($('demoReferral')) $('demoReferral').textContent=u.referral_code||'—';
+  if($('demoBtcPrice')) $('demoBtcPrice').textContent=market.price?`$${Number(market.price).toLocaleString(undefined,{maximumFractionDigits:2})}`:'—';
+  const trading=u.mode!=='arbitrage';
+  $('demoTradingPanel') && ($('demoTradingPanel').hidden=!trading); $('demoArbitragePanel') && ($('demoArbitragePanel').hidden=trading);
+  $('demoTradingMode')?.classList.toggle('active',trading); $('demoArbitrageMode')?.classList.toggle('active',!trading);
+  if($('demoBotStatus')) $('demoBotStatus').textContent=u.bot_running?'ACTIVO':'PAUSADO';
+  if($('demoBotToggle')) $('demoBotToggle').textContent=u.bot_running?'Pausar demo':'Iniciar demo';
+}
+async function demoPost(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');renderDemo(d);return d}
+document.querySelectorAll('[data-demo-mode]').forEach(btn=>btn.addEventListener('click',async()=>{try{await demoPost('/api/demo/mode',{mode:btn.dataset.demoMode});toast(btn.dataset.demoMode==='trading'?'↗ Trading demo seleccionado':'⇄ Arbitraje demo seleccionado')}catch(e){toast(e.message)}}));
+$('demoBotToggle')?.addEventListener('click',async()=>{try{const running=!!currentDemo?.user?.bot_running;await demoPost('/api/demo/bot/toggle',{enabled:!running});toast(!running?'▶ Demo iniciada':'⏸ Demo pausada')}catch(e){toast(e.message)}});
 
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  if(installBtn){ installBtn.textContent = '✅ LunaTrade instalado'; installBtn.disabled = true; }
-  toast('✅ LunaTrade quedó instalado en tu teléfono.');
-});
-
-installBtn?.addEventListener('click', async () => {
-  if(window.matchMedia('(display-mode: standalone)').matches){
-    toast('✅ Ya estás usando LunaTrade como app.');
-    return;
-  }
-  if(deferredInstallPrompt){
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-    return;
-  }
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isSecure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  if(isIOS){
-    toast('📱 Safari: Compartir → Añadir a pantalla de inicio.');
-  }else if(!isSecure){
-    toast('📱 En esta red local usa Chrome ⋮ → Añadir a pantalla de inicio. Con HTTPS se instalará como PWA completa.');
-  }else{
-    toast('📱 Abre el menú del navegador y elige Instalar app / Añadir a pantalla de inicio.');
-  }
-});
-
-$('installFromMore')?.addEventListener('click',()=>installBtn?.click());
-$('logoutFromMore')?.addEventListener('click',()=>$('logoutBtn')?.click());
+async function loadDemoUsers(){
+  if(currentRole!=='admin'||!$('demoUserRows')) return;
+  try{const r=await fetch('/api/admin/users',{cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');const users=d.users||[];$('demoUserRows').innerHTML=users.map(u=>`<tr><td>${escapeHtml(u.display_name)}</td><td><b>${escapeHtml(u.username)}</b></td><td>${escapeHtml(u.referral_code)}</td><td>$${Number(u.demo_balance||100).toFixed(2)}</td><td>${u.selected_mode==='arbitrage'?'Arbitraje':'Trading'}</td><td>${u.last_login?new Date(u.last_login).toLocaleString():'Nunca'}</td><td><button class="table-action" data-reset-user="${u.id}">Nueva clave</button></td></tr>`).join('')||'<tr><td colspan="7">Todavía no hay usuarios demo.</td></tr>';
+  document.querySelectorAll('[data-reset-user]').forEach(b=>b.addEventListener('click',()=>resetDemoPassword(Number(b.dataset.resetUser))));}catch(e){toast(e.message)}
+}
+async function createDemoUser(){
+  const name=$('newDemoName')?.value.trim(); if(!name){toast('Escribe el nombre del usuario.');return;}
+  try{const r=await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({display_name:name})});const d=await r.json();if(!r.ok)throw new Error(d.detail||'No se pudo crear');lastCreatedCredentials=d.credentials;
+  if($('credentialResult')) $('credentialResult').hidden=false;if($('createdUsername')) $('createdUsername').textContent=d.credentials.username;if($('createdPassword')) $('createdPassword').textContent=d.credentials.password;if($('newDemoName')) $('newDemoName').value='';toast('✅ Usuario creado con $100 demo.');await loadDemoUsers();}catch(e){toast(e.message)}
+}
+async function resetDemoPassword(id){try{const r=await fetch(`/api/admin/users/${id}/reset-password`,{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||'Error');lastCreatedCredentials={username:d.username,password:d.password};if($('credentialResult')) $('credentialResult').hidden=false;if($('createdUsername')) $('createdUsername').textContent=d.username;if($('createdPassword')) $('createdPassword').textContent=d.password;toast('🔐 Nueva contraseña generada. Cópiala ahora.')}catch(e){toast(e.message)}}
+$('createDemoUser')?.addEventListener('click',createDemoUser); $('refreshDemoUsers')?.addEventListener('click',loadDemoUsers);
+$('copyCredentials')?.addEventListener('click',async()=>{if(!lastCreatedCredentials)return;const text=`LunaTrade\nUsuario: ${lastCreatedCredentials.username}\nContraseña: ${lastCreatedCredentials.password}\nDemo: $100 virtuales\nEnlace: ${location.origin}`;try{await navigator.clipboard.writeText(text);toast('📋 Acceso copiado.')}catch(_){toast('Copia el usuario y la contraseña de la tarjeta.')}});
+const partnersBtn=document.querySelector('[data-open-section="partners"]'); partnersBtn?.addEventListener('click',()=>setTimeout(loadDemoUsers,80));
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', async () => {
@@ -193,4 +218,4 @@ if('serviceWorker' in navigator){
 
 $('technicalDetails')?.addEventListener('toggle',()=>{ if($('technicalDetails')?.open && latest) setTimeout(()=>drawChart(latest.equity_history),60); });
 
-(async()=>{ if(await checkAuth()) connectWs(); })();
+(async()=>{ await checkAuth(); })();
