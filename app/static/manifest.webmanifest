@@ -1,15 +1,30 @@
 {
+  "id": "/",
   "name": "LunaTrade",
   "short_name": "LunaTrade",
-  "description": "Panel privado de LunaTrade Auto Testnet",
-  "start_url": "/?source=pwa",
+  "description": "LunaTrade — panel automático Testnet minimalista",
+  "start_url": "/?source=pwa&v=11",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
   "background_color": "#060a14",
-  "theme_color": "#0b1020",
+  "theme_color": "#070b13",
   "orientation": "portrait-primary",
   "icons": [
-    {"src":"/static/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
-    {"src":"/static/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

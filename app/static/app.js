@@ -39,6 +39,9 @@ function render(data){
   if($('autoTestnetBadge')){$('autoTestnetBadge').textContent=a.enabled?'ACTIVO':'PAUSADO';$('autoTestnetBadge').className=`connection-badge ${a.enabled?'on':'testnet'}`}
   if($('testnetAssignedCapital')&&document.activeElement!==$('testnetAssignedCapital'))$('testnetAssignedCapital').value=Number(a.assigned_capital||100).toFixed(0);
   const pos=a.position;
+  if($('positionHero')) $('positionHero').textContent=pos ? `${Number(pos.amount_usdt||0).toFixed(2)} USDT abiertos` : 'Sin posición';
+  if($('lastActionHero')) $('lastActionHero').textContent=a.pause_reason ? a.pause_reason : (a.last_action|| (a.enabled ? 'Analizando el mercado' : 'Bot pausado'));
+  if($('signal')){ const s=String(a.signal||'ESPERAR').toUpperCase(); $('signal').className = s.includes('COMPR') ? 'signal-buy' : s.includes('VEND') ? 'signal-sell' : 'signal-wait'; }
   if($('testnetAutoResult')){
     const status=a.pause_reason?`<b>⚠️ ${escapeHtml(a.pause_reason)}</b>`:a.enabled?'<b>🟢 LunaTrade está operando automáticamente</b>':'<b>⏸ LunaTrade automático está pausado</b>';
     const p=pos?`<br>Posición abierta: ${Number(pos.amount_usdt||0).toFixed(4)} USDT @ $${Number(pos.entry_price||0).toFixed(2)}`:'<br>Posición: ninguna abierta';
@@ -79,7 +82,7 @@ $('loginForm')?.addEventListener('submit',async(e)=>{
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'No se pudo iniciar sesión');
     authOkay=true; hideLogin(); if($('loginPassword')) $('loginPassword').value=''; connectWs();
-  }catch(err){ showLogin(err.message); }
+  }catch(err){ showLogin(err?.message === 'Failed to fetch' ? 'No pude contactar el backend. Verifica que LunaTrade esté encendido en VS Code.' : err.message); }
 });
 $('logoutBtn')?.addEventListener('click',async()=>{
   try{await fetch('/api/logout',{method:'POST'});}catch(_){}
@@ -99,7 +102,20 @@ $('saveSettings')?.addEventListener('click',async()=>{try{await post('/api/setti
 document.querySelectorAll('.strategy-btn').forEach(btn=>btn.addEventListener('click',async()=>{try{const pct=Number(btn.dataset.reinvest);syncStrategyUi(pct);await post('/api/settings',{reinvest_pct:pct/100,max_daily_loss_pct:Number($('dailyLossPct').value)/100,max_position_pct:Number($('positionPct').value)/100});toast(`💰 Estrategia ${strategyLabel(pct)} guardada.`)}catch(e){toast(e.message)}}));
 $('arbitragePreview')?.addEventListener('click',()=>toast('⚡ Arbitraje sigue pendiente de Bybit y validación de costes.'));
 $('copyReferral')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText('JORGE-LT');toast('👥 Código JORGE-LT copiado.')}catch(_){toast('Código: JORGE-LT')}});
-document.querySelectorAll('.nav-item').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.section').forEach(s=>s.classList.remove('active-section'));btn.classList.add('active');document.getElementById(btn.dataset.section).classList.add('active-section')}));
+function openSection(sectionId, navBtn=null){
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active-section'));
+  const section=document.getElementById(sectionId);
+  if(section) section.classList.add('active-section');
+  if(navBtn) navBtn.classList.add('active');
+  else document.querySelector(`.nav-item[data-section="${sectionId}"]:not([data-focus])`)?.classList.add('active');
+}
+document.querySelectorAll('.nav-item').forEach(btn=>btn.addEventListener('click',()=>{
+  openSection(btn.dataset.section,btn);
+  if(btn.dataset.focus==='bot') setTimeout(()=>document.getElementById('botCard')?.scrollIntoView({behavior:'smooth',block:'start'}),40);
+  else window.scrollTo({top:0,behavior:'smooth'});
+}));
+document.querySelectorAll('[data-open-section]').forEach(btn=>btn.addEventListener('click',()=>{openSection(btn.dataset.openSection);window.scrollTo({top:0,behavior:'smooth'});}));
 window.addEventListener('resize',()=>latest&&drawChart(latest.equity_history));
 
 // Manual V3 sigue disponible.
@@ -108,7 +124,7 @@ function getManualDone(){try{return new Set(JSON.parse(localStorage.getItem(MANU
 function saveManualDone(done){localStorage.setItem(MANUAL_STORAGE_KEY,JSON.stringify([...done].sort((a,b)=>a-b)))}
 function updateManualUi(focusNext=false){const done=getManualDone();document.querySelectorAll('.manual-step').forEach(step=>{const n=Number(step.dataset.manualStep);step.classList.toggle('completed',done.has(n));step.classList.remove('current')});const next=[1,2,3,4,5,6,7,8].find(n=>!done.has(n));if(next){const el=document.querySelector(`.manual-step[data-manual-step="${next}"]`);el?.classList.add('current');if(focusNext)el?.scrollIntoView({behavior:'smooth',block:'center'})}const pct=(done.size/8)*100;if($('manualProgressBar'))$('manualProgressBar').style.width=`${pct}%`;if($('manualProgressText'))$('manualProgressText').textContent=`${done.size} de 8 pasos`}
 function completeManualStep(n,focusNext=true){const done=getManualDone();done.add(Number(n));saveManualDone(done);updateManualUi(focusNext)}
-function goSection(id){document.querySelector(`.nav-item[data-section="${id}"]`)?.click();window.scrollTo({top:0,behavior:'smooth'})}
+function goSection(id){const btn=document.querySelector(`.nav-item[data-section="${id}"]`);if(btn)btn.click();else{openSection(id);window.scrollTo({top:0,behavior:'smooth'});}}
 document.querySelectorAll('.manual-done').forEach(btn=>btn.addEventListener('click',()=>{completeManualStep(btn.dataset.complete,true);toast('✅ Paso completado.')}));
 document.querySelectorAll('.manual-go').forEach(btn=>btn.addEventListener('click',()=>{completeManualStep(btn.dataset.complete,false);goSection(btn.dataset.goSection);toast('👉 Sigue la indicación de esta pantalla.')}));
 $('resetManual')?.addEventListener('click',()=>{localStorage.removeItem(MANUAL_STORAGE_KEY);updateManualUi(false);toast('📘 Guía reiniciada.')});
@@ -161,6 +177,9 @@ installBtn?.addEventListener('click', async () => {
   }
 });
 
+$('installFromMore')?.addEventListener('click',()=>installBtn?.click());
+$('logoutFromMore')?.addEventListener('click',()=>$('logoutBtn')?.click());
+
 if('serviceWorker' in navigator){
   window.addEventListener('load', async () => {
     try{
@@ -171,5 +190,7 @@ if('serviceWorker' in navigator){
     }
   });
 }
+
+$('technicalDetails')?.addEventListener('toggle',()=>{ if($('technicalDetails')?.open && latest) setTimeout(()=>drawChart(latest.equity_history),60); });
 
 (async()=>{ if(await checkAuth()) connectWs(); })();

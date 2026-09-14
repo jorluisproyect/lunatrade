@@ -30,8 +30,24 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 CLOUD_MODE = os.getenv("CLOUD_MODE", "false").lower() == "true"
-ACCESS_PASSWORD = os.getenv("LUNATRADE_ACCESS_PASSWORD", "").strip()
-SESSION_SECRET = os.getenv("LUNATRADE_SESSION_SECRET", "").strip()
+
+# V9.2: login local robusto.
+# Si el proyecto corre realmente en Railway usamos las variables privadas del servidor.
+# Si corre en tu PC, usamos siempre la clave local, aunque un .env antiguo conserve CLOUD_MODE=true.
+LOCAL_ACCESS_PASSWORD = "LunaTrade-9146!"
+LOCAL_SESSION_SECRET = "lunatrade-local-only-9f3a7c2e6b184d5aa1c0e2f4b6d8a0c7"
+RUNNING_ON_RAILWAY = bool(
+    os.getenv("RAILWAY_ENVIRONMENT")
+    or os.getenv("RAILWAY_PROJECT_ID")
+    or os.getenv("RAILWAY_SERVICE_ID")
+)
+
+if RUNNING_ON_RAILWAY:
+    ACCESS_PASSWORD = os.getenv("LUNATRADE_ACCESS_PASSWORD", "").strip()
+    SESSION_SECRET = os.getenv("LUNATRADE_SESSION_SECRET", "").strip()
+else:
+    ACCESS_PASSWORD = LOCAL_ACCESS_PASSWORD
+    SESSION_SECRET = LOCAL_SESSION_SECRET
 SESSION_COOKIE = "lunatrade_session"
 SESSION_TTL_SECONDS = 60 * 60 * 24 * 30
 
@@ -107,7 +123,7 @@ def _persist_auto_position() -> None:
 async def lifespan(app: FastAPI):
     init_db()
     _load_persisted_runtime()
-    add_event("info", "LunaTrade V8 Cloud iniciado", "AUTO Binance Spot Testnet + PWA + acceso protegido. Fondos virtuales solamente.")
+    add_event("info", "LunaTrade V9.2 iniciado", "AUTO Binance Spot Testnet + PWA + login local listo. Fondos virtuales solamente.")
     tasks = [
         asyncio.create_task(market_stream()),
         asyncio.create_task(simulation_loop()),
@@ -121,7 +137,7 @@ async def lifespan(app: FastAPI):
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-app = FastAPI(title="LunaTrade V8 Cloud Testnet", version="0.8.0", lifespan=lifespan)
+app = FastAPI(title="LunaTrade V9.1 Minimal Testnet", version="0.9.1", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -154,7 +170,7 @@ async def home():
 
 @app.get("/healthz")
 async def healthz():
-    return {"ok": True, "service": "LunaTrade V8", "mode": "TESTNET_ONLY"}
+    return {"ok": True, "service": "LunaTrade V9.1", "mode": "TESTNET_ONLY", "cloud": CLOUD_MODE}
 
 
 @app.get("/api/auth/status")
@@ -162,7 +178,13 @@ async def auth_status(request: Request):
     required = _auth_required()
     ready = _auth_ready()
     authenticated = (not required) or _valid_session_token(request.cookies.get(SESSION_COOKIE))
-    return {"required": required, "ready": ready, "authenticated": authenticated}
+    return {
+        "required": required,
+        "ready": ready,
+        "authenticated": authenticated,
+        "mode": "railway" if RUNNING_ON_RAILWAY else "local",
+        "version": "9.2",
+    }
 
 
 @app.post("/api/login")

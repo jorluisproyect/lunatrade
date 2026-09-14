@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LunaTrade V8 — Cloud Auto Testnet</title>
-  <meta name="theme-color" content="#0b1020" />
+  <title>LunaTrade V11 — Clean PWA</title>
+  <meta name="theme-color" content="#070b13" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="LunaTrade" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=8.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=11" />
 </head>
 <body>
   <div class="login-overlay" id="loginOverlay" hidden>
@@ -29,174 +29,126 @@
     </div>
   </div>
   <div class="app-shell" id="appShell">
-    <aside class="sidebar">
-      <div class="brand">
+    <aside class="sidebar clean-sidebar">
+      <div class="brand clean-brand">
         <div class="moon">◔</div>
-        <div><strong>LunaTrade</strong><span>AUTO V8 · CLOUD</span></div>
+        <div><strong>LunaTrade</strong><span>TESTNET</span></div>
       </div>
 
-      <nav>
-        <button class="nav-item active" data-section="dashboard">⌂ <span>Dashboard</span></button>
+      <nav class="clean-nav">
+        <button class="nav-item active" data-section="dashboard">⌂ <span>Inicio</span></button>
         <button class="nav-item" data-section="operations">⇄ <span>Operaciones</span></button>
         <button class="nav-item" data-section="wallet">▣ <span>Billetera</span></button>
-        <button class="nav-item" data-section="partners">👥 <span>Referidos</span></button>
-        <button class="nav-item" data-section="manual">📘 <span>Manual</span></button>
-        <button class="nav-item" data-section="settings">⚙ <span>Ajustes</span></button>
+        <button class="nav-item" data-section="more">••• <span>Más</span></button>
       </nav>
-
-      <div class="status-card market-data-card">
-        <div class="status-dot" id="marketDot"></div>
-        <div>
-          <b id="marketStatus">Conectando mercado...</b>
-          <small>Datos públicos BTC/USDT · no es tu billetera</small>
-        </div>
-      </div>
-
-      <div class="user-box">
-        <div class="avatar">J</div>
-        <div><b>Hola, Jorge</b><small>Auto · Spot Testnet</small></div>
-      </div>
     </aside>
 
-    <main class="main-content">
-      <header class="topbar">
-        <div>
-          <h1>Resumen General</h1>
-          <p>Trading automático · Binance Spot Testnet · fondos virtuales</p>
-        </div>
-        <div class="topbar-actions">
-          <button class="install-app-btn" id="installAppBtn" type="button">📱 Instalar LunaTrade</button><button class="logout-btn" id="logoutBtn" type="button">Salir</button>
-          <div class="mode-pill">🟡 AUTO TESTNET — SIN DINERO REAL</div>
-        </div>
+    <main class="main-content clean-main">
+      <header class="topbar clean-topbar">
+        <div class="clean-title"><h1>LunaTrade</h1><span class="mode-pill">TESTNET</span></div>
+        <div class="clean-online"><i></i><span>En línea</span></div>
+        <button class="system-hidden" id="installAppBtn" type="button">Instalar app</button>
+        <button class="system-hidden" id="logoutBtn" type="button">Salir</button>
       </header>
 
       <section id="dashboard" class="section active-section">
-        <div class="cards four">
-          <article class="metric-card blue"><span>Saldo USDT · Binance Testnet</span><strong id="totalTestnetCapital">—</strong><small>FONDOS VIRTUALES DISPONIBLES</small></article>
-          <article class="metric-card"><span>Capital asignado al Bot</span><strong id="equity">$10.00</strong><small>SOLO LO QUE LUNATRADE PUEDE USAR</small></article>
-          <article class="metric-card green"><span>Ganancia del Bot</span><strong id="profit">+$0.00</strong><small id="profitPct">desde activación</small></article>
-          <article class="metric-card"><span>BTC/USDT Testnet</span><strong id="btcPrice">—</strong><small id="signal">Esperando mercado</small></article>
-        </div>
-
-        <div class="connection-strip">
-          <article class="exchange-connection public-feed">
-            <div class="exchange-logo">₿</div>
-            <div><small>Mercado Binance</small><b id="marketFeedLabel">Datos públicos conectando…</b></div>
-            <span class="connection-badge" id="marketFeedBadge">…</span>
-          </article>
-          <article class="exchange-connection disconnected" id="binanceTestnetCard">
-            <div class="exchange-logo">B</div>
+        <article class="clean-bot-card" id="botCard">
+          <div class="clean-bot-head">
             <div>
-              <small>Tu cuenta Binance</small>
-              <b id="binanceTestnetLabel">NO CONECTADA</b>
-              <em id="binanceTestnetBalance">Spot Testnet pendiente</em>
-            </div>
-            <div class="exchange-actions">
-              <span class="connection-badge off" id="binanceTestnetBadge">OFF</span>
-              <button class="mini-connect-btn" id="checkBinanceTestnet">Verificar</button>
-            </div>
-          </article>
-          <article class="exchange-connection disconnected">
-            <div class="exchange-logo">BY</div>
-            <div><small>Tu cuenta Bybit</small><b>NO CONECTADA</b></div>
-            <span class="connection-badge off">OFF</span>
-          </article>
-        </div>
-
-        <article class="panel mobile-ready-panel" id="mobileReadyPanel">
-          <div class="mobile-ready-copy">
-            <span class="eyebrow">📱 MODO TELÉFONO</span>
-            <h2>LunaTrade listo para tu pantalla de inicio</h2>
-            <p>Con HTTPS en la nube, LunaTrade puede abrirse desde tu teléfono aunque la laptop esté apagada. Instálalo como PWA para entrar con un solo toque.</p>
-          </div>
-          <div class="mobile-ready-status">
-            <b id="networkStatus">🟢 En línea</b>
-            <small id="installStatus">Acceso móvil disponible</small>
-          </div>
-        </article>
-
-        <article class="panel testnet-test-panel">
-          <div class="panel-head">
-            <div>
-              <span class="eyebrow">🤖 AUTOMÁTICO · BINANCE SPOT TESTNET</span>
-              <h2>Deja que LunaTrade decida por ti</h2>
-              <p>LunaTrade analiza BTC/USDT cada segundo. Cuando la señal técnica cumple las reglas, compra automáticamente; después gestiona Stop Loss, Take Profit y salida. Todo aquí usa fondos virtuales.</p>
+              <small>BOT AUTOMÁTICO</small>
+              <h2>BTC / USDT</h2>
             </div>
             <span class="connection-badge testnet" id="autoTestnetBadge">PAUSADO</span>
           </div>
-          <div class="testnet-trade-row">
-            <label>Capital asignado al bot
-              <input id="testnetAssignedCapital" type="number" min="5" max="1000" step="1" value="100" />
-            </label>
-            <button class="secondary-btn" id="saveTestnetCapital">Usar este capital</button>
-            <button class="primary-btn" id="toggleTestnetAuto">ACTIVAR AUTO TESTNET</button>
+
+          <div class="clean-signal">
+            <span>Ahora</span>
+            <strong id="signal">ESPERAR</strong>
+            <small id="lastActionHero">Esperando una oportunidad válida</small>
           </div>
-          <div class="guided-box success"><b>Recomendación inicial:</b><span>Tu saldo completo de Binance Testnet se muestra arriba. Para esta práctica asigna <b>100 USDT virtuales</b>. LunaTrade no utilizará el resto del saldo.</span></div>
-          <div class="guided-box warning"><b>Protección V6:</b><span>Stop Loss -0,40% · Take Profit +0,80% · máximo -2% diario · pausa tras 3 pérdidas consecutivas. En esta fase la protección la gestiona LunaTrade mientras el servidor esté encendido.</span></div>
-          <div id="testnetAutoResult" class="testnet-result">Esperando activación.</div>
+
+          <div class="clean-money-row">
+            <div><span>Saldo</span><strong id="totalTestnetCapital">—</strong></div>
+            <div><span>Bot</span><strong id="equity">$100.00</strong></div>
+            <div><span>Ganancia</span><strong id="profit">+$0.00</strong><small id="profitPct">desde activación</small></div>
+          </div>
+
+          <div class="clean-market-row">
+            <span>BTC/USDT</span>
+            <strong id="btcPrice">—</strong>
+            <span class="clean-protection">● Protección automática</span>
+          </div>
+
+          <div class="clean-actions">
+            <button class="primary-btn clean-main-action" id="toggleTestnetAuto">ACTIVAR BOT</button>
+            <button class="clean-stop" id="emergencyBtn" aria-label="Detener bot">Detener</button>
+          </div>
+
+          <div class="clean-position"><span>Posición</span><b id="positionHero">Sin posición</b></div>
+          <div id="testnetAutoResult" class="sr-only" aria-live="polite">Esperando activación.</div>
         </article>
 
-        <div class="bot-command-grid">
-          <article class="command-card trading-card">
-            <div class="command-top">
-              <div><span class="giant-icon">🤖</span><small>AUTOMATIZACIÓN</small><h2>TRADING BOT</h2></div>
-              <span class="big-status" id="tradeBotStatus">PAUSADO</span>
-            </div>
-            <p>Trading automático conectado a Binance Spot Testnet. Tú no tienes que pulsar comprar ni vender.</p>
-            <div class="command-stats"><span>Señal <b id="commandSignal">ESPERAR</b></span><span>Riesgo <b>PROTEGIDO</b></span></div>
-            <button class="primary-btn large-action" id="toggleBot">ACTIVAR AUTO TESTNET</button>
-          </article>
-
-          <article class="command-card arbitrage-card">
-            <div class="command-top">
-              <div><span class="giant-icon">⚡</span><small>MULTI-EXCHANGE</small><h2>ARBITRAJE</h2></div>
-              <span class="big-status amber">FASE 2</span>
-            </div>
-            <p>Preparado para comparar Binance ↔ Bybit. No se ejecuta hasta conectar la segunda fuente y validar costes.</p>
-            <div class="command-stats"><span>Binance <b>MARKET DATA</b></span><span>Bybit <b class="muted-value">PENDIENTE</b></span></div>
-            <button class="secondary-btn large-action" id="arbitragePreview">Ver cómo funcionará</button>
-          </article>
+        <div class="clean-connection" id="binanceTestnetCard">
+          <div class="clean-connection-left"><span class="clean-dot"></span><div><b id="binanceTestnetLabel">Binance Testnet</b><small id="binanceTestnetBalance">Comprobando conexión…</small></div></div>
+          <div class="clean-connection-right"><span class="connection-badge off" id="binanceTestnetBadge">OFF</span><button class="mini-connect-btn" id="checkBinanceTestnet">Verificar</button></div>
         </div>
 
-        <div class="grid-main">
-          <article class="panel chart-panel">
-            <div class="panel-head"><div><h2>Rendimiento</h2><p>Capital estimado en tiempo real</p></div><span class="live-badge">● LIVE</span></div>
-            <canvas id="equityChart" width="900" height="320"></canvas>
-          </article>
+        <details class="details-drawer clean-details" id="technicalDetails">
+          <summary><span>Opciones avanzadas</span><small>Capital, estrategia y datos técnicos</small></summary>
+          <div class="details-content">
+            <div class="clean-advanced-grid">
+              <article class="panel clean-advanced-card">
+                <div class="panel-head"><div><h2>Capital del bot</h2><p>Máximo autorizado para operar.</p></div></div>
+                <div class="bot-controls-simple">
+                  <label>USDT
+                    <div class="capital-input-wrap"><span>USDT</span><input id="testnetAssignedCapital" type="number" min="5" max="1000" step="1" value="100" /></div>
+                  </label>
+                  <button class="secondary-btn" id="saveTestnetCapital">Guardar</button>
+                </div>
+              </article>
 
-          <article class="panel investment-panel">
-            <div class="panel-head"><div><h2>¿Qué hacer con mis ganancias?</h2><p>Define cómo crece tu capital.</p></div></div>
-            <div class="strategy-current">
-              <span>Modo actual</span>
-              <strong id="strategyName">Equilibrado</strong>
-              <small><b id="reinvestQuick">70%</b> reinvertir · <b id="reserveQuick">30%</b> reservar</small>
+              <article class="panel clean-advanced-card">
+                <div class="panel-head"><div><h2>Conexión</h2><p>Estado técnico.</p></div></div>
+                <div class="clean-tech-status"><span id="marketDot" class="status-dot"></span><b id="marketStatus">Conectando mercado...</b></div>
+                <div class="clean-tech-status"><span>Mercado</span><b id="marketFeedLabel">Conectando…</b><i id="marketFeedBadge">…</i></div>
+              </article>
             </div>
-            <div class="strategy-options">
-              <button class="strategy-btn" data-reinvest="100"><b>🚀 Crecimiento</b><small>100% reinvertir</small></button>
-              <button class="strategy-btn active" data-reinvest="70"><b>⚖️ Equilibrado</b><small>70% / 30%</small></button>
-              <button class="strategy-btn" data-reinvest="50"><b>🛡️ Conservador</b><small>50% / 50%</small></button>
-              <button class="strategy-btn" data-reinvest="0"><b>💰 Reservar</b><small>0% reinvertir</small></button>
-            </div>
-            <button class="danger-btn" id="emergencyBtn">🛑 EMERGENCY STOP</button>
-          </article>
-        </div>
 
-        <div class="grid-lower">
-          <article class="panel">
-            <div class="panel-head"><div><h2>Indicadores</h2><p>Lectura técnica demo</p></div></div>
-            <div class="indicator-grid">
-              <div><span>EMA 9</span><b id="emaFast">—</b></div>
-              <div><span>EMA 21</span><b id="emaSlow">—</b></div>
-              <div><span>RSI</span><b id="rsi">—</b></div>
-              <div><span>Pérdidas seguidas</span><b id="lossStreak">0</b></div>
-            </div>
-          </article>
+            <div class="grid-main">
+              <article class="panel chart-panel">
+                <div class="panel-head"><div><h2>Rendimiento</h2><p>Evolución del capital.</p></div><span class="live-badge">● LIVE</span></div>
+                <canvas id="equityChart" width="900" height="320"></canvas>
+              </article>
 
-          <article class="panel">
-            <div class="panel-head"><div><h2>Actividad Reciente</h2><p>Cada movimiento genera un mensaje.</p></div></div>
-            <div id="eventList" class="event-list"></div>
-          </article>
-        </div>
+              <article class="panel investment-panel">
+                <div class="panel-head"><div><h2>Estrategia</h2><p>Qué hacer con las ganancias.</p></div></div>
+                <div class="strategy-current"><span>Modo actual</span><strong id="strategyName">Equilibrado</strong><small><b id="reinvestQuick">70%</b> reinvertir · <b id="reserveQuick">30%</b> reservar</small></div>
+                <div class="strategy-options">
+                  <button class="strategy-btn" data-reinvest="100"><b>Crecimiento</b><small>100%</small></button>
+                  <button class="strategy-btn active" data-reinvest="70"><b>Equilibrado</b><small>70 / 30</small></button>
+                  <button class="strategy-btn" data-reinvest="50"><b>Conservador</b><small>50 / 50</small></button>
+                  <button class="strategy-btn" data-reinvest="0"><b>Reservar</b><small>0 / 100</small></button>
+                </div>
+              </article>
+            </div>
+
+            <div class="grid-lower">
+              <article class="panel">
+                <div class="panel-head"><div><h2>Indicadores</h2><p>Análisis técnico.</p></div></div>
+                <div class="indicator-grid">
+                  <div><span>EMA 9</span><b id="emaFast">—</b></div>
+                  <div><span>EMA 21</span><b id="emaSlow">—</b></div>
+                  <div><span>RSI</span><b id="rsi">—</b></div>
+                  <div><span>Pérdidas seguidas</span><b id="lossStreak">0</b></div>
+                </div>
+              </article>
+              <article class="panel">
+                <div class="panel-head"><div><h2>Actividad</h2><p>Últimos movimientos.</p></div></div>
+                <div id="eventList" class="event-list"></div>
+              </article>
+            </div>
+          </div>
+        </details>
       </section>
 
       <section id="operations" class="section">
@@ -240,6 +192,26 @@
             <button class="secondary-btn" id="withdrawBtn">Retirar de Reserva PAPER</button>
           </article>
         </div>
+      </section>
+
+      <section id="more" class="section">
+        <div class="section-title"><h2>Más</h2><p>Opciones secundarias, sin llenar la pantalla principal.</p></div>
+        <div class="more-grid">
+          <button class="more-option" data-open-section="manual"><span>📘</span><div><b>Manual</b><small>Guía paso a paso de LunaTrade</small></div><i>›</i></button>
+          <button class="more-option" data-open-section="settings"><span>⚙</span><div><b>Ajustes</b><small>Riesgo, reinversión y límites</small></div><i>›</i></button>
+          <button class="more-option" data-open-section="partners"><span>👥</span><div><b>Referidos</b><small>Programa LunaTrade Partners</small></div><i>›</i></button>
+          <button class="more-option" id="installFromMore" type="button"><span>📱</span><div><b>Instalar LunaTrade</b><small>Añadir como app PWA al teléfono</small></div><i>›</i></button>
+        </div>
+        <article class="more-status-card">
+          <div><span>Estado</span><b id="networkStatus">🟢 En línea</b></div>
+          <div><span>Modo</span><b>TESTNET · VIRTUAL</b></div>
+          <div><span>Instalación</span><b id="installStatus">Acceso móvil disponible</b></div>
+        </article>
+        <article class="minimal-secondary-card more-arbitrage">
+          <div><span class="eyebrow">⚡ ARBITRAJE</span><h3>Binance ↔ Bybit</h3><p>Disponible cuando conectemos Bybit y validemos costes.</p></div>
+          <button class="ghost-btn" id="arbitragePreview">Ver fase 2</button>
+        </article>
+        <button class="more-logout" id="logoutFromMore" type="button">Cerrar sesión</button>
       </section>
 
       <section id="partners" class="section">
@@ -406,6 +378,6 @@
 
   <div id="toast" class="toast"></div>
   <span id="reserve" hidden></span>
-  <script src="/static/app.js?v=8.0"></script>
+  <script src="/static/app.js?v=11"></script>
 </body>
 </html>
